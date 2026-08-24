@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   },
   description:
     'A transparent quantitative market-analysis platform for live Binance candles and deterministic indicator probability modeling.',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
