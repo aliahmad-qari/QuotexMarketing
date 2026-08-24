@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { storageService } from '../services/StorageService';
+import { marketDataRepository } from '../repositories/MarketDataRepository';
 import { ApiResponse, MarketSymbol } from '../types/market.types';
 
 export class PerformanceController {
   public static async getPerformance(req: Request, res: Response): Promise<void> {
     try {
-      const stats = await storageService.getPerformanceStats();
+      const stats = await marketDataRepository.getPerformanceStats();
       const response: ApiResponse = {
         success: true,
         data: stats,
@@ -25,7 +25,7 @@ export class PerformanceController {
   public static async getPerformanceBySymbol(req: Request, res: Response): Promise<void> {
     try {
       const symbol = req.params.symbol.toUpperCase() as MarketSymbol;
-      const stats = await storageService.getPerformanceStats(symbol);
+      const stats = await marketDataRepository.getPerformanceStats(symbol);
       const response: ApiResponse = {
         success: true,
         data: stats,

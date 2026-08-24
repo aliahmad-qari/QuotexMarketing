@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { binanceDataService } from '../services/BinanceDataService';
 import { marketHubService } from '../services/MarketHubService';
-import { storageService } from '../services/StorageService';
+import { marketDataRepository } from '../repositories/MarketDataRepository';
 import { ApiResponse, MarketSymbol, Timeframe } from '../types/market.types';
 
 export class MarketController {
@@ -30,12 +30,12 @@ export class MarketController {
       const timeframe = (req.query.timeframe || '1m') as Timeframe;
       const limit = parseInt(req.query.limit as string, 10) || 100;
 
-      let candles = await storageService.getCandles(symbol, timeframe, limit);
+      let candles = await marketDataRepository.getCandles(symbol, timeframe, limit);
 
       if (candles.length < 20) {
         const fetched = await binanceDataService.fetchHistoricalCandles(symbol, timeframe, limit);
         if (fetched.length > 0) {
-          await storageService.saveCandles(fetched);
+          await marketDataRepository.saveCandles(fetched);
           candles = fetched;
         }
       }

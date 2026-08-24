@@ -121,8 +121,6 @@ export interface PerformanceStats {
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'reconnecting' | 'disconnected' | 'stale';
 
-export type PageRoute = 'landing' | 'dashboard' | 'performance' | 'methodology' | 'risk-disclosure' | 'about';
-
 export interface IndicatorWeightsConfig {
   emaWeight: number;
   rsiWeight: number;

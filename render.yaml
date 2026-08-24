@@ -3,7 +3,8 @@ services:
     name: candle-probability-lab-api
     env: node
     plan: starter
-    buildCommand: npm install && npm run build
+    rootDir: server
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -12,5 +13,11 @@ services:
         value: 3000
       - key: MONGODB_URI
         sync: false
-      - key: CORS_ORIGIN
-        value: '*'
+      - key: FRONTEND_URL
+        sync: false
+      - key: BINANCE_REST_URL
+        value: https://api.binance.com
+      - key: BINANCE_WS_URL
+        value: wss://stream.binance.com:9443
+      - key: PREDICTION_MODEL_VERSION
+        value: indicator-v1

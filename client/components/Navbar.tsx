@@ -1,4 +1,8 @@
-import React from 'react';
+'use client';
+
+import Link from 'next/link';
+import type React from 'react';
+import { usePathname } from 'next/navigation';
 import {
   Activity,
   AlertTriangle,
@@ -9,21 +13,15 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react';
-import { ConnectionStatus, MarketMetadata, PageRoute } from '../types/market';
+import { useMarketStream } from '../hooks/useMarketStream';
+import { ConnectionStatus } from '../types/market';
 
-interface NavbarProps {
-  currentPage: PageRoute;
-  onNavigate: (page: PageRoute) => void;
-  connectionStatus: ConnectionStatus;
-  activeMetadata: MarketMetadata | null;
-}
+type NavItem = { href: string; label: string; icon: React.ReactNode };
 
-export const Navbar: React.FC<NavbarProps> = ({
-  currentPage,
-  onNavigate,
-  connectionStatus,
-  activeMetadata,
-}) => {
+export function Navbar() {
+  const pathname = usePathname();
+  const { status: connectionStatus } = useMarketStream('BTCUSDT', '1m');
+
   const getStatusBadge = () => {
     switch (connectionStatus) {
       case 'connected':
@@ -51,24 +49,26 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const navItems: { id: PageRoute; label: string; icon: React.ReactNode }[] = [
-    { id: 'landing', label: 'Overview', icon: <Layers className="w-3.5 h-3.5" /> },
-    { id: 'dashboard', label: 'Live Terminal', icon: <Activity className="w-3.5 h-3.5 text-cyan-400" /> },
-    { id: 'performance', label: 'Track Record', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
-    { id: 'methodology', label: 'Methodology', icon: <BookOpen className="w-3.5 h-3.5" /> },
-    { id: 'risk-disclosure', label: 'Risk Disclosure', icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> },
-    { id: 'about', label: 'About', icon: <Shield className="w-3.5 h-3.5" /> },
+  const navItems: NavItem[] = [
+    { href: '/', label: 'Overview', icon: <Layers className="w-3.5 h-3.5" /> },
+    { href: '/dashboard', label: 'Live Terminal', icon: <Activity className="w-3.5 h-3.5 text-cyan-400" /> },
+    { href: '/performance', label: 'Track Record', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" /> },
+    { href: '/methodology', label: 'Methodology', icon: <BookOpen className="w-3.5 h-3.5" /> },
+    { href: '/risk-disclosure', label: 'Risk Disclosure', icon: <AlertTriangle className="w-3.5 h-3.5 text-rose-400" /> },
+    { href: '/about', label: 'About', icon: <Shield className="w-3.5 h-3.5" /> },
   ];
+
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   return (
     <header className="sticky top-0 z-50 w-full bg-[#080B10]/95 backdrop-blur-md border-b border-slate-800/80 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand */}
-          <div
+          <Link
             id="brand-logo"
-            onClick={() => onNavigate('landing')}
             className="flex items-center space-x-2.5 cursor-pointer group"
+            href="/"
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
               <Zap className="w-4 h-4 text-slate-950 stroke-[3]" />
@@ -83,24 +83,24 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Real-Time Probability Engine
               </p>
             </div>
-          </div>
+          </Link>
 
           {/* Center Navigation */}
           <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
             {navItems.map((item) => (
-              <button
-                key={item.id}
-                id={`nav-link-${item.id}`}
-                onClick={() => onNavigate(item.id)}
+              <Link
+                key={item.href}
+                id={`nav-link-${item.href === '/' ? 'overview' : item.href.slice(1)}`}
+                href={item.href}
                 className={`px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-150 flex items-center space-x-1.5 ${
-                  currentPage === item.id
+                  isActive(item.href)
                     ? 'bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850/50'
                 }`}
               >
                 {item.icon}
                 <span>{item.label}</span>
-              </button>
+              </Link>
             ))}
           </nav>
 
@@ -108,14 +108,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center space-x-2 sm:space-x-3">
             <div className="hidden lg:block">{getStatusBadge()}</div>
 
-            {currentPage !== 'dashboard' && (
-              <button
-                onClick={() => onNavigate('dashboard')}
+            {pathname !== '/dashboard' && (
+              <Link
+                href="/dashboard"
                 className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/20 transition-all"
               >
                 <span>Live Terminal</span>
                 <ChevronRight className="w-3.5 h-3.5 stroke-[3]" />
-              </button>
+              </Link>
             )}
           </div>
         </div>
@@ -123,21 +123,21 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Mobile Navigation Row */}
         <div className="flex md:hidden overflow-x-auto py-2 space-x-2 border-t border-slate-800/60 no-scrollbar">
           {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onNavigate(item.id)}
+            <Link
+              key={item.href}
+              href={item.href}
               className={`px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap flex items-center space-x-1 ${
-                currentPage === item.id
+                isActive(item.href)
                   ? 'bg-slate-800 text-cyan-400 font-bold border border-slate-700'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               {item.icon}
               <span>{item.label}</span>
-            </button>
+            </Link>
           ))}
         </div>
       </div>
     </header>
   );
-};
+}

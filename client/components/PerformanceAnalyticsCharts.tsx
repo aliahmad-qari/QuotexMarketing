@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+'use client';
+
+import { useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,

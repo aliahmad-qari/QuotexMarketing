@@ -3,21 +3,22 @@ import { NextFunction, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 
-// Security Headers with Helmet configured for WebSockets & TradingView charts
+// Security headers configured for API and WebSocket responses.
 export const securityHeaders = helmet({
-  contentSecurityPolicy: false, // Vite dev & chart scripts
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
 });
 
 // CORS allowlist configuration
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
-    // Allow local development, AI studio preview, and configured frontend URL
-    const allowed = process.env.FRONTEND_URL || '*';
-    if (allowed === '*' || !origin || origin.includes('localhost') || origin.includes('.run.app')) {
+    const configuredFrontendUrl = process.env.FRONTEND_URL;
+    const isLocalhost = origin?.includes('localhost') || origin?.includes('127.0.0.1');
+
+    if (!origin || isLocalhost || !configuredFrontendUrl || origin === configuredFrontendUrl) {
       callback(null, true);
     } else {
-      callback(null, true);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,

@@ -52,8 +52,13 @@ export class WebSocketClient {
 
     this.setStatus('connecting');
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+
+    if (!wsUrl) {
+      console.error('[WS Client] NEXT_PUBLIC_WS_URL is required for WebSocket connections.');
+      this.setStatus('disconnected');
+      return;
+    }
 
     try {
       this.ws = new WebSocket(wsUrl);

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { storageService } from '../services/StorageService';
+import { marketDataRepository } from '../repositories/MarketDataRepository';
 import { ApiResponse, MarketSymbol, Timeframe } from '../types/market.types';
 
 export class PredictionController {
@@ -11,7 +11,7 @@ export class PredictionController {
       const result = req.query.result as string | undefined;
       const limit = parseInt(req.query.limit as string, 10) || 50;
 
-      const predictions = await storageService.getPredictions({
+      const predictions = await marketDataRepository.getPredictions({
         symbol,
         timeframe,
         horizon,
