@@ -2,6 +2,9 @@
   "name": "quotex-marketing-platform",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": "22.x"
+  },
   "workspaces": [
     "client",
     "server"
@@ -9,6 +12,7 @@
   "scripts": {
     "client:dev": "npm run dev -w client",
     "server:dev": "npm run dev -w server",
+    "server:start": "npm run server:build && npm run start -w server",
     "dev": "concurrently \"npm run client:dev\" \"npm run server:dev\"",
     "client:build": "npm run build -w client",
     "server:build": "npm run build -w server",
@@ -17,7 +21,9 @@
     "server:typecheck": "npm run typecheck -w server",
     "typecheck": "npm run client:typecheck && npm run server:typecheck",
     "lint": "npm run lint -w client && npm run lint -w server",
-    "test": "npm run test -w client && npm run test -w server"
+    "test": "npm run test -w client && npm run test -w server",
+    "start": "npm run server:start",
+    "render:build": "npm install --include=dev && npm run server:build"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
