@@ -9,19 +9,31 @@ export const securityHeaders = helmet({
   crossOriginEmbedderPolicy: false,
 });
 
-// CORS allowlist configuration
+function getAllowedOrigins(): string[] {
+  return [
+    process.env.FRONTEND_URL,
+    ...(process.env.FRONTEND_URLS || '').split(','),
+  ]
+    .map((origin) => origin?.trim())
+    .filter((origin): origin is string => Boolean(origin));
+}
+
+// Exact CORS allowlist configuration for the Vercel frontend.
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const configuredFrontendUrl = process.env.FRONTEND_URL;
+    const allowedOrigins = getAllowedOrigins();
     const isLocalhost = origin?.includes('localhost') || origin?.includes('127.0.0.1');
 
-    if (!origin || isLocalhost || !configuredFrontendUrl || origin === configuredFrontendUrl) {
+    if (!origin || isLocalhost || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+  optionsSuccessStatus: 204,
 });
 
 // Rate limiting for REST endpoints (300 requests per minute)

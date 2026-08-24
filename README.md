@@ -66,6 +66,7 @@ NODE_ENV=development
 PORT=3000
 MONGODB_URI=
 FRONTEND_URL=http://localhost:3001
+FRONTEND_URLS=
 BINANCE_REST_URL=https://api.binance.com
 BINANCE_WS_URL=wss://stream.binance.com:9443
 PREDICTION_MODEL_VERSION=indicator-v1
