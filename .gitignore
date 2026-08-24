@@ -1,6 +1,9 @@
 node_modules/
 build/
 dist/
+.next/
+client/.next/
+*.tsbuildinfo
 coverage/
 .DS_Store
 *.log

@@ -1,6 +1,0 @@
-{
-  "name": "Candle Probability Lab",
-  "description": "Quantitative market-analysis and probability modeling platform displaying live Binance candles and deterministic indicator-based +1 and +2 predicted candles.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

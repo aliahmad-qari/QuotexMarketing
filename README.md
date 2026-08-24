@@ -1,72 +1,121 @@
 # Candle Probability Lab
 
-A complete, production-grade quantitative market-analysis and research platform.
+A professional monorepo for a quantitative market-analysis and research platform.
 
-**Candle Probability Lab** visualizes real live Binance Spot market candles followed by two clearly labelled, deterministic probability-based predicted candles:
-1. **Actual market candles** (live Binance stream with sub-minute to multi-hour intervals)
-2. **PREDICTED Candle +1** (immediate horizon direction and 50%–80% bounded confidence)
-3. **PREDICTED Candle +2** (compound horizon direction with variance decay and 50%–75% confidence)
+## Architecture
 
----
+- `client`: Next.js App Router, React, TypeScript, Tailwind CSS, TradingView Lightweight Charts, Recharts, deployable to Vercel.
+- `server`: Node.js, Express, TypeScript, Mongoose, MongoDB Atlas, REST API, `ws` WebSocket server, deployable to Render.
+- Market data uses official Binance Spot REST and WebSocket endpoints.
+- Predictions are deterministic indicator-agreement outputs for research and education only.
 
-## ⚠️ Important Research & Regulatory Notice
+## Routes
 
-* **Not a Broker:** This application is strictly a market-analysis, quantitative research, and educational platform. It does not execute orders, take deposits, or provide automated trading.
-* **No Black-Box Promises:** Predictions are calculated deterministically from 12 technical indicator metrics (EMA 9/21, RSI 14, MACD, ATR 14, Wick Pressure, Momentum, Volume Surge).
-* **Zero Look-Ahead Bias:** Predictions are locked immutably at the millisecond a candle opens, and evaluated against the true close price once the target candle seals.
+Implemented frontend routes:
 
----
+- `/`
+- `/dashboard`
+- `/performance`
+- `/methodology`
+- `/risk-disclosure`
+- `/about`
 
-## 🛠️ Architecture & Tech Stack
+Authentication and account routes:
 
-* **Frontend:** React 19, TypeScript, Tailwind CSS v4, TradingView Lightweight Charts, Lucide Icons.
-* **Backend:** Node.js, Express, WebSocket (`ws`), Mongoose / MongoDB Atlas (with in-memory fallback), Helmet, CORS, Rate Limiting.
-* **Data Pipelines:** Official Binance Spot REST (`api.binance.com`) + Live WebSocket multiplex streams.
-* **Indicators:** EMA 9/21, RSI 14, MACD (12, 26, 9), ATR 14, Candle Body Pressure, Upper/Lower Wick Absorption, Momentum (5), Volume Change, Trend Strength.
+- `/login`
+- `/register`
+- `/forgot-password`
+- `/reset-password`
+- `/account`
+- `/admin`
 
----
+No temporary authentication, fake users, localStorage login, fake admin roles, demo trading, order execution, Quotex scraping, or unofficial Quotex APIs are implemented.
 
-## 🚀 Getting Started
+## Authentication
 
-### 1. Environment Configuration
+The Express backend is the source of truth for users, password verification, refresh sessions, roles, password resets, account status, and admin authorization.
 
-Copy `.env.example` to `.env`:
+- Roles: `user`, `researcher`, `admin`
+- Default registration role: `user`
+- Password hashing: Argon2id
+- Access token: short-lived bearer token kept in frontend memory only
+- Refresh token: opaque rotating token stored as a hashed value server-side and delivered through a Secure, HttpOnly cookie
+- CSRF: double-submit token for cookie-backed unsafe requests
+- Admin changes are audited in `AuditLog`
+
+Production deployments should use sibling subdomains such as:
+
+- `app.example.com` for the Vercel frontend
+- `api.example.com` for the Render backend
+
+Keeping the app and API under the same parent domain improves secure cookie reliability while still allowing exact CORS allowlisting.
+For separate hosted domains such as `*.vercel.app` and `*.onrender.com`, set `COOKIE_SAMESITE=none`, leave `COOKIE_DOMAIN` blank, and keep `FRONTEND_URL` set to the exact Vercel URL.
+
+## Environment
+
+Frontend:
 
 ```bash
-PORT=3000
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
+NEXT_PUBLIC_WS_URL=ws://localhost:3000/ws
+```
+
+Backend:
+
+```bash
 NODE_ENV=development
-MONGODB_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/candle_lab
-CORS_ORIGIN=*
+PORT=3000
+MONGODB_URI=
+FRONTEND_URL=http://localhost:3001
+FRONTEND_URLS=
+BINANCE_REST_URL=https://data-api.binance.vision
+BINANCE_WS_URL=wss://data-stream.binance.vision:443
+PREDICTION_MODEL_VERSION=indicator-v1
+ACCESS_TOKEN_SECRET=
+REFRESH_TOKEN_SECRET=
+ACCESS_TOKEN_TTL=15m
+REFRESH_TOKEN_TTL_DAYS=30
+COOKIE_DOMAIN=
+COOKIE_SAMESITE=
+EMAIL_PROVIDER=
+EMAIL_FROM=
+EMAIL_API_KEY=
+ADMIN_BOOTSTRAP_EMAIL=
 ```
 
-*(Note: If `MONGODB_URI` is not provided, the server automatically defaults to high-speed in-memory state repository for seamless offline or demo execution).*
-
-### 2. Install & Run
+Vercel should deploy the `client` directory with:
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server (Node Express + Vite + WebSocket)
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
+NEXT_PUBLIC_API_URL=https://your-render-service.onrender.com/api
+NEXT_PUBLIC_WS_URL=wss://your-render-service.onrender.com/ws
 ```
 
----
+Render should deploy the `server` directory with `FRONTEND_URL` set to the exact Vercel production URL and any preview/custom domains listed in `FRONTEND_URLS`.
 
-## 📊 Supported Markets & Timeframes
+Create the first administrator with:
 
-* **Spot Pairs:** `BTCUSDT`, `ETHUSDT`, `BNBUSDT`, `SOLUSDT`, `XRPUSDT`, `ADAUSDT`, `DOGEUSDT`
-* **Intervals:** `5s`, `10s`, `15s`, `30s` (aggregated), `1m`, `2m` (aggregated), `5m`, `1h`, `2h`, `3h` (aggregated)
+```bash
+npm run create-admin -w server -- --email=admin@example.com
+```
 
----
+Set `ADMIN_BOOTSTRAP_EMAIL` to constrain which email can be bootstrapped.
 
-## 📜 Deployment
+## Development
 
-* **Render:** Use the included `render.yaml` blueprint for one-click deployment.
-* **Vercel / Cloud Run:** Use standard Node container or static build via `vercel.json`.
+```bash
+npm install
+npm run dev
+```
+
+Useful scripts:
+
+- `npm run client:dev`
+- `npm run server:dev`
+- `npm run build`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run test`
+
+## Risk Notice
+
+Candle Probability Lab is not a broker, does not execute trades, does not hold funds, and does not provide financial advice. All predictions are bounded mathematical research outputs and can be wrong.
