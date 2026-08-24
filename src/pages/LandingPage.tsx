@@ -6,15 +6,8 @@ import {
   BarChart3,
   CheckCircle,
   Clock,
-  Compass,
-  Cpu,
-  Layers,
   Lock,
-  Percent,
-  Shield,
-  ShieldCheck,
   Sparkles,
-  TrendingUp,
 } from 'lucide-react';
 import { TradingChart } from '../components/TradingChart';
 import { useMarketStream } from '../hooks/useMarketStream';
@@ -275,107 +268,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-      {/* 5. RESEARCHER & ADMIN ACCESS SECTION */}
-      <section className="max-w-7xl mx-auto px-4">
-        <div className="bg-[#0E131F] border border-slate-800 rounded-2xl p-6 sm:p-10 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-xs font-mono text-purple-400 uppercase tracking-widest font-semibold">
-                Role-Based Authentication & Governance
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Researcher Workspaces & Administrator Console
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300">
-                Seamless role switching between quant analysis workstations and system parameter tuning.
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-                Sandbox Mode Active
-              </span>
-            </div>
-          </div>
+      {/* 5. CALL TO ACTION & RISK WARNING */}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-            {/* Researcher Role */}
-            <div className="p-6 rounded-xl bg-slate-950/70 border border-cyan-500/30 space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                  <Activity className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-bold text-white font-mono">Quantitative Researcher</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Access the complete Live Lab dashboard, track record analytics, Recharts calibration graphs, and historical immutable prediction audit logs.
-                </p>
-                <ul className="text-xs font-mono text-slate-300 space-y-1.5 pt-2">
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Real-time Binance WebSocket multiplex</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Audited win-rate & calibration graphs</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Cross-asset timeframe comparison</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-4 border-t border-slate-800/80">
-                <button
-                  onClick={() => onNavigate('dashboard')}
-                  className="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-md shadow-cyan-500/20"
-                >
-                  <span>Launch Researcher Lab</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Administrator Role */}
-            <div className="p-6 rounded-xl bg-slate-950/70 border border-purple-500/30 space-y-4 flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <h3 className="text-lg font-bold text-white font-mono">System Administrator</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Calibrate technical factor weights (EMA, RSI, MACD, Wick pressure), configure probability caps (80% / 75%), purge cache buffers, and monitor live streaming diagnostics.
-                </p>
-                <ul className="text-xs font-mono text-slate-300 space-y-1.5 pt-2">
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Dynamic factor weights adjustment & tuning</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Live ingestion pipeline diagnostics</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-3.5 h-3.5 text-purple-400" />
-                    <span>Evaluation trigger & cache purge controls</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-4 border-t border-slate-800/80">
-                <button
-                  onClick={() => onNavigate('admin')}
-                  className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-xs flex items-center justify-center space-x-2 transition-all shadow-md shadow-purple-600/20"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span>Open Admin Control Panel</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. CALL TO ACTION & RISK WARNING */}
       <section className="max-w-5xl mx-auto px-4 text-center space-y-6">
         <div className="bg-gradient-to-b from-slate-900 to-[#0B0E14] border border-cyan-500/30 rounded-2xl p-8 sm:p-12 space-y-6 shadow-2xl">
           <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto text-cyan-400">

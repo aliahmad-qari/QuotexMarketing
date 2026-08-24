@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, BookOpen, ExternalLink, Shield, Sparkles } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { PageRoute } from '../types/market';
 
 interface FooterProps {
@@ -10,7 +10,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
     <footer className="w-full bg-[#080B10] border-t border-slate-800/80 text-slate-400 text-xs py-10 mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Critical Risk Disclaimer Box */}
+        {/* Risk Disclaimer */}
         <div className="bg-slate-900/80 border border-amber-500/20 rounded-xl p-4 sm:p-5 flex items-start space-x-3.5">
           <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div className="space-y-1 text-slate-300">
@@ -43,35 +43,18 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </h5>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <button
-                  onClick={() => onNavigate('dashboard')}
-                  className="hover:text-cyan-400 transition-colors"
-                >
+                <button onClick={() => onNavigate('dashboard')} className="hover:text-cyan-400 transition-colors">
                   Live Probability Dashboard
                 </button>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate('performance')}
-                  className="hover:text-cyan-400 transition-colors"
-                >
+                <button onClick={() => onNavigate('performance')} className="hover:text-cyan-400 transition-colors">
                   Verifiable Track Record & Stats
                 </button>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate('methodology')}
-                  className="hover:text-cyan-400 transition-colors"
-                >
+                <button onClick={() => onNavigate('methodology')} className="hover:text-cyan-400 transition-colors">
                   Mathematical Formulae & Indicators
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onNavigate('admin')}
-                  className="hover:text-purple-400 transition-colors text-purple-300/80"
-                >
-                  Administrator Console
                 </button>
               </li>
             </ul>
@@ -83,23 +66,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </h5>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <button
-                  onClick={() => onNavigate('risk-disclosure')}
-                  className="hover:text-cyan-400 transition-colors"
-                >
+                <button onClick={() => onNavigate('risk-disclosure')} className="hover:text-cyan-400 transition-colors">
                   Full Risk Disclosure
                 </button>
               </li>
               <li>
-                <button
-                  onClick={() => onNavigate('about')}
-                  className="hover:text-cyan-400 transition-colors"
-                >
+                <button onClick={() => onNavigate('about')} className="hover:text-cyan-400 transition-colors">
                   No Black-Box Philosophy
                 </button>
-              </li>
-              <li className="text-slate-500">
-                <span>Zero Quotex / Binary Broker Ties</span>
               </li>
             </ul>
           </div>
@@ -121,15 +95,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-[11px] text-slate-500 space-y-2 sm:space-y-0">
           <p>&copy; {new Date().getFullYear()} Candle Probability Lab. Open Research & Quantitative Engineering.</p>
           <div className="flex items-center space-x-4">
-            <button onClick={() => onNavigate('methodology')} className="hover:text-slate-400">
-              Methodology
-            </button>
-            <button onClick={() => onNavigate('risk-disclosure')} className="hover:text-slate-400">
-              Risk Disclosure
-            </button>
-            <button onClick={() => onNavigate('about')} className="hover:text-slate-400">
-              About
-            </button>
+            <button onClick={() => onNavigate('methodology')} className="hover:text-slate-400">Methodology</button>
+            <button onClick={() => onNavigate('risk-disclosure')} className="hover:text-slate-400">Risk Disclosure</button>
+            <button onClick={() => onNavigate('about')} className="hover:text-slate-400">About</button>
           </div>
         </div>
       </div>

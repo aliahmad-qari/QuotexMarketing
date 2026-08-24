@@ -121,19 +121,7 @@ export interface PerformanceStats {
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'reconnecting' | 'disconnected' | 'stale';
 
-export type PageRoute = 'landing' | 'dashboard' | 'performance' | 'methodology' | 'risk-disclosure' | 'about' | 'admin';
-
-export type UserRole = 'admin' | 'researcher' | 'guest';
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  avatar?: string;
-  createdAt: number;
-  lastLogin: number;
-}
+export type PageRoute = 'landing' | 'dashboard' | 'performance' | 'methodology' | 'risk-disclosure' | 'about';
 
 export interface IndicatorWeightsConfig {
   emaWeight: number;
@@ -148,21 +136,3 @@ export interface IndicatorWeightsConfig {
 }
 
 export type ChartType = 'candles' | 'area' | 'line' | 'bars';
-
-export type DemoTradeStatus = 'OPEN' | 'WON' | 'LOST' | 'TIE';
-
-export interface DemoTrade {
-  id: string;
-  symbol: MarketSymbol;
-  direction: Direction;
-  amount: number;
-  entryPrice: number;
-  exitPrice?: number;
-  payoutPercent: number;
-  expectedProfit: number;
-  actualProfit?: number;
-  status: DemoTradeStatus;
-  createdAt: number;
-  expiresAt: number;
-  durationSeconds: number;
-}
