@@ -14,6 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useMarketStream } from '../hooks/useMarketStream';
+import { useAuth } from '../providers/AuthProvider';
 import { ConnectionStatus } from '../types/market';
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
@@ -21,6 +22,7 @@ type NavItem = { href: string; label: string; icon: React.ReactNode };
 export function Navbar() {
   const pathname = usePathname();
   const { status: connectionStatus } = useMarketStream('BTCUSDT', '1m');
+  const { user, isAuthenticated, logout } = useAuth();
 
   const getStatusBadge = () => {
     switch (connectionStatus) {
@@ -108,7 +110,42 @@ export function Navbar() {
           <div className="flex items-center space-x-2 sm:space-x-3">
             <div className="hidden lg:block">{getStatusBadge()}</div>
 
-            {pathname !== '/dashboard' && (
+            {isAuthenticated && user?.role === 'admin' && pathname !== '/admin' && (
+              <Link
+                href="/admin"
+                className="hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 transition-all"
+              >
+                Admin
+              </Link>
+            )}
+
+            {isAuthenticated ? (
+              <>
+                <Link
+                  href="/account"
+                  className="hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-700 text-slate-300 hover:text-white transition-all"
+                >
+                  Account
+                </Link>
+                <button
+                  onClick={logout}
+                  className="hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-700 text-slate-400 hover:text-white transition-all"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <div className="hidden sm:flex items-center space-x-2">
+                <Link href="/login" className="text-xs font-mono text-slate-300 hover:text-white">
+                  Sign in
+                </Link>
+                <Link href="/register" className="px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10">
+                  Register
+                </Link>
+              </div>
+            )}
+
+            {isAuthenticated && pathname !== '/dashboard' && (
               <Link
                 href="/dashboard"
                 className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/20 transition-all"

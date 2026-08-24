@@ -3,8 +3,13 @@ import { MarketController } from '../controllers/market.controller';
 import { PerformanceController } from '../controllers/performance.controller';
 import { PredictionController } from '../controllers/prediction.controller';
 import { isDbConnected } from '../config/db';
+import authRoutes from './auth.routes';
+import adminRoutes from './admin.routes';
 
 const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/admin', adminRoutes);
 
 // Health Check Endpoint
 router.get('/health', (req, res) => {

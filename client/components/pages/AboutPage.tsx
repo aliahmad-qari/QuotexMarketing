@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, CheckCircle, Code2, Globe, HeartHandshake, Shield, Sparkles, Terminal } from 'lucide-react';
+import { CheckCircle, Code2, Globe, Shield } from 'lucide-react';
 
 export const AboutPage: React.FC = () => {
   return (
@@ -22,7 +22,7 @@ export const AboutPage: React.FC = () => {
       <div className="bg-[#0E131F] border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-4">
         <h2 className="text-xl font-bold text-white font-mono">Our Core Mission</h2>
         <p className="text-sm text-slate-300 leading-relaxed">
-          The retail trading space is saturated with deceptive "AI black-box" claims, fake 99% win-rate promises, and casino-like binary betting interfaces designed to mislead users.
+          The retail trading space is saturated with deceptive &quot;AI black-box&quot; claims, fake 99% win-rate promises, and casino-like binary betting interfaces designed to mislead users.
         </p>
         <p className="text-sm text-slate-300 leading-relaxed">
           <strong>Candle Probability Lab</strong> was founded as a counter-movement: a quantitative laboratory built on absolute mathematical transparency, verifiable live market feeds from Binance Spot, and honest probability bounds.
@@ -37,7 +37,7 @@ export const AboutPage: React.FC = () => {
           </div>
           <h3 className="font-bold text-white text-base">Open, Deterministic Algorithms</h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Every predicted candle is calculated from documented indicator formulas (EMA, RSI, MACD, ATR, Wick Pressure). If the math doesn't agree, the model tells you.
+            Every predicted candle is calculated from documented indicator formulas (EMA, RSI, MACD, ATR, Wick Pressure). If the math does not agree, the model tells you.
           </p>
         </div>
 
@@ -67,7 +67,7 @@ export const AboutPage: React.FC = () => {
           </div>
           <h3 className="font-bold text-white text-base">Strict Ethical Stance</h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            We do not partner with unregulated binary brokers, do not sell "signals", do not take deposits, and do not encourage reckless trading.
+            We do not partner with unregulated binary brokers, do not sell &quot;signals&quot;, do not take deposits, and do not encourage reckless trading.
           </p>
         </div>
       </div>

@@ -162,32 +162,33 @@ export class WebSocketClient {
     }
   }
 
-  private handleMessage(msg: { event: string; data: any }) {
+  private handleMessage(msg: { event: string; data: unknown }) {
+    const data = msg.data as Record<string, unknown> | undefined;
     switch (msg.event) {
       case 'market:snapshot':
-        this.snapshotListeners.forEach((fn) => fn(msg.data));
+        this.snapshotListeners.forEach((fn) => fn(msg.data as MarketSnapshotPayload));
         break;
       case 'candle:update':
-        if (msg.data?.candle) {
-          this.candleUpdateListeners.forEach((fn) => fn(msg.data.candle));
+        if (data?.candle) {
+          this.candleUpdateListeners.forEach((fn) => fn(data.candle as Candle));
         }
         break;
       case 'candle:closed':
-        if (msg.data?.candle) {
-          this.candleClosedListeners.forEach((fn) => fn(msg.data.candle));
+        if (data?.candle) {
+          this.candleClosedListeners.forEach((fn) => fn(data.candle as Candle));
         }
         break;
       case 'prediction:new':
-        this.predictionNewListeners.forEach((fn) => fn(msg.data));
+        this.predictionNewListeners.forEach((fn) => fn(msg.data as { prediction1: Prediction; prediction2: Prediction }));
         break;
       case 'prediction:evaluated':
-        if (msg.data?.evaluation) {
-          this.predictionEvaluatedListeners.forEach((fn) => fn(msg.data.evaluation));
+        if (data?.evaluation) {
+          this.predictionEvaluatedListeners.forEach((fn) => fn(data.evaluation as Prediction));
         }
         break;
       case 'connection:status':
-        if (msg.data?.status) {
-          this.setStatus(msg.data.status);
+        if (data?.status) {
+          this.setStatus(data.status as ConnectionStatus);
         }
         break;
     }

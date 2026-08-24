@@ -9,6 +9,8 @@ interface ClientConnection {
   subscriptions: Set<string>; // room keys e.g. "BTCUSDT:1m"
 }
 
+let activeClientCount = 0;
+
 const VALID_SYMBOLS: MarketSymbol[] = [
   'BTCUSDT',
   'ETHUSDT',
@@ -56,6 +58,7 @@ export function setupWebSocketServer(httpServer: HTTPServer) {
       subscriptions: new Set(),
     };
     clients.set(ws, client);
+    activeClientCount = clients.size;
 
     // Send connection ready
     ws.send(
@@ -133,11 +136,13 @@ export function setupWebSocketServer(httpServer: HTTPServer) {
 
     ws.on('close', () => {
       clients.delete(ws);
+      activeClientCount = clients.size;
     });
 
     ws.on('error', (err) => {
       console.warn('[WS Server] Socket error:', err.message);
       clients.delete(ws);
+      activeClientCount = clients.size;
     });
   });
 
@@ -146,6 +151,7 @@ export function setupWebSocketServer(httpServer: HTTPServer) {
     clients.forEach((client, ws) => {
       if (!client.isAlive) {
         clients.delete(ws);
+        activeClientCount = clients.size;
         return ws.terminate();
       }
       client.isAlive = false;
@@ -158,4 +164,10 @@ export function setupWebSocketServer(httpServer: HTTPServer) {
   });
 
   return wss;
+}
+
+export function getWebSocketStats() {
+  return {
+    clients: activeClientCount,
+  };
 }

@@ -1,9 +1,14 @@
 import { DashboardPage } from '../../components/pages/DashboardPage';
+import { ProtectedRoute } from '../../components/ProtectedRoute';
 
 export const metadata = {
   title: 'Live Dashboard',
 };
 
 export default function DashboardRoute() {
-  return <DashboardPage />;
+  return (
+    <ProtectedRoute>
+      <DashboardPage />
+    </ProtectedRoute>
+  );
 }

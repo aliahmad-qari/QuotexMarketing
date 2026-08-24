@@ -123,8 +123,16 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       if (!param || !param.time || !param.seriesData) {
         return;
       }
-      const data: any = param.seriesData.get(candleSeries);
-      if (data && data.close !== undefined) {
+      const data = param.seriesData.get(candleSeries) as
+        | { close?: number; open?: number; high?: number; low?: number }
+        | undefined;
+      if (
+        data &&
+        data.close !== undefined &&
+        data.open !== undefined &&
+        data.high !== undefined &&
+        data.low !== undefined
+      ) {
         setActivePrice({
           price: data.close,
           open: data.open,

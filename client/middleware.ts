@@ -1,19 +1,22 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-const AUTH_RESERVED_ROUTES = [
-  '/login',
-  '/register',
-  '/forgot-password',
-  '/reset-password',
-  '/account',
-  '/admin',
-];
+const AUTHENTICATED_ROUTES = ['/dashboard', '/performance', '/account'];
+const ADMIN_ROUTES = ['/admin'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hasRefreshCookie = request.cookies.has('refreshToken');
 
-  if (AUTH_RESERVED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
-    return NextResponse.next();
+  if (
+    [...AUTHENTICATED_ROUTES, ...ADMIN_ROUTES].some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    ) &&
+    !hasRefreshCookie
+  ) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.searchParams.set('next', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();

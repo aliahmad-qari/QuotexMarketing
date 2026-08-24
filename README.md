@@ -20,7 +20,7 @@ Implemented frontend routes:
 - `/risk-disclosure`
 - `/about`
 
-Reserved for the next authentication phase:
+Authentication and account routes:
 
 - `/login`
 - `/register`
@@ -30,6 +30,25 @@ Reserved for the next authentication phase:
 - `/admin`
 
 No temporary authentication, fake users, localStorage login, fake admin roles, demo trading, order execution, Quotex scraping, or unofficial Quotex APIs are implemented.
+
+## Authentication
+
+The Express backend is the source of truth for users, password verification, refresh sessions, roles, password resets, account status, and admin authorization.
+
+- Roles: `user`, `researcher`, `admin`
+- Default registration role: `user`
+- Password hashing: Argon2id
+- Access token: short-lived bearer token kept in frontend memory only
+- Refresh token: opaque rotating token stored as a hashed value server-side and delivered through a Secure, HttpOnly cookie
+- CSRF: double-submit token for cookie-backed unsafe requests
+- Admin changes are audited in `AuditLog`
+
+Production deployments should use sibling subdomains such as:
+
+- `app.example.com` for the Vercel frontend
+- `api.example.com` for the Render backend
+
+Keeping the app and API under the same parent domain improves secure cookie reliability while still allowing exact CORS allowlisting.
 
 ## Environment
 
@@ -50,7 +69,24 @@ FRONTEND_URL=http://localhost:3001
 BINANCE_REST_URL=https://api.binance.com
 BINANCE_WS_URL=wss://stream.binance.com:9443
 PREDICTION_MODEL_VERSION=indicator-v1
+ACCESS_TOKEN_SECRET=
+REFRESH_TOKEN_SECRET=
+ACCESS_TOKEN_TTL=15m
+REFRESH_TOKEN_TTL_DAYS=30
+COOKIE_DOMAIN=
+EMAIL_PROVIDER=
+EMAIL_FROM=
+EMAIL_API_KEY=
+ADMIN_BOOTSTRAP_EMAIL=
 ```
+
+Create the first administrator with:
+
+```bash
+npm run create-admin -w server -- --email=admin@example.com
+```
+
+Set `ADMIN_BOOTSTRAP_EMAIL` to constrain which email can be bootstrapped.
 
 ## Development
 
