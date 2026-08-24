@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Activity,
   ArrowDown,
   ArrowUp,
   Award,
@@ -26,7 +25,7 @@ export function PerformancePage() {
   const [selectedResult, setSelectedResult] = useState<string>('ALL');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       const sym = selectedSymbol !== 'ALL' ? (selectedSymbol as MarketSymbol) : undefined;
@@ -46,11 +45,11 @@ export function PerformancePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [selectedHorizon, selectedResult, selectedSymbol, selectedTimeframe]);
 
   useEffect(() => {
     loadData();
-  }, [selectedSymbol, selectedTimeframe, selectedHorizon, selectedResult]);
+  }, [loadData]);
 
   return (
     <div className="space-y-8 pb-16">

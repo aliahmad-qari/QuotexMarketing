@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, AlertTriangle, CheckSquare, FileText, ShieldAlert, ShieldX } from 'lucide-react';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
 
 export const RiskDisclosurePage: React.FC = () => {
   return (

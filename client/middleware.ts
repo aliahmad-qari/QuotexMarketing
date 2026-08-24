@@ -1,24 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
-const AUTHENTICATED_ROUTES = ['/dashboard', '/performance', '/account'];
-const ADMIN_ROUTES = ['/admin'];
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const hasRefreshCookie = request.cookies.has('refreshToken');
-
-  if (
-    [...AUTHENTICATED_ROUTES, ...ADMIN_ROUTES].some(
-      (route) => pathname === route || pathname.startsWith(`${route}/`)
-    ) &&
-    !hasRefreshCookie
-  ) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
+export function middleware() {
+  // Auth is enforced by the API and ProtectedRoute. In production the HttpOnly
+  // refresh cookie belongs to the API host, so Vercel middleware cannot inspect it.
   return NextResponse.next();
 }
 

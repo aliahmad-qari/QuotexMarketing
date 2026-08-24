@@ -21,7 +21,6 @@ export function LandingPage() {
     candles,
     prediction1,
     prediction2,
-    metadata,
     secondsRemaining,
   } = useMarketStream('BTCUSDT', '1m');
 

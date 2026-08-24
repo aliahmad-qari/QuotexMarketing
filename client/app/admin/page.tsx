@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ProtectedRoute } from '../../components/ProtectedRoute';
 import { useAuth } from '../../providers/AuthProvider';
 import {
@@ -35,7 +35,7 @@ function AdminContent() {
     return query ? `?${query}` : '';
   }, [roleFilter, search, statusFilter]);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!accessToken) return;
     setError('');
     try {
@@ -54,11 +54,11 @@ function AdminContent() {
     } catch (err) {
       setError((err as Error).message);
     }
-  }
+  }, [accessToken, userQuery]);
 
   useEffect(() => {
     load();
-  }, [accessToken, userQuery]);
+  }, [load]);
 
   async function changeRole(userId: string, role: UserRole) {
     if (!accessToken || !csrfToken) return;

@@ -8,14 +8,15 @@ import {
   AlertTriangle,
   BookOpen,
   ChevronRight,
+  LogIn,
   Layers,
   Shield,
   Sparkles,
+  User,
   Zap,
 } from 'lucide-react';
 import { useMarketStream } from '../hooks/useMarketStream';
 import { useAuth } from '../providers/AuthProvider';
-import { ConnectionStatus } from '../types/market';
 
 type NavItem = { href: string; label: string; icon: React.ReactNode };
 
@@ -65,11 +66,11 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full bg-[#080B10]/95 backdrop-blur-md border-b border-slate-800/80 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between min-h-16 py-2 gap-3">
           {/* Brand */}
           <Link
             id="brand-logo"
-            className="flex items-center space-x-2.5 cursor-pointer group"
+            className="flex shrink-0 items-center space-x-2.5 cursor-pointer group"
             href="/"
           >
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
@@ -88,7 +89,7 @@ export function Navbar() {
           </Link>
 
           {/* Center Navigation */}
-          <nav className="hidden md:flex items-center space-x-1 lg:space-x-1.5">
+          <nav className="hidden xl:flex items-center space-x-1.5">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -107,13 +108,13 @@ export function Navbar() {
           </nav>
 
           {/* Right: Status + Live Terminal CTA */}
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex shrink-0 items-center space-x-2 sm:space-x-3">
             <div className="hidden lg:block">{getStatusBadge()}</div>
 
             {isAuthenticated && user?.role === 'admin' && pathname !== '/admin' && (
               <Link
                 href="/admin"
-                className="hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 transition-all"
+                className="hidden lg:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 transition-all"
               >
                 Admin
               </Link>
@@ -123,19 +124,19 @@ export function Navbar() {
               <>
                 <Link
                   href="/account"
-                  className="hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-700 text-slate-300 hover:text-white transition-all"
+                  className="hidden lg:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-700 text-slate-300 hover:text-white transition-all"
                 >
                   Account
                 </Link>
                 <button
                   onClick={logout}
-                  className="hidden sm:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-700 text-slate-400 hover:text-white transition-all"
+                  className="hidden lg:inline-flex px-3 py-1.5 rounded-xl text-xs font-mono font-bold border border-slate-700 text-slate-400 hover:text-white transition-all"
                 >
                   Logout
                 </button>
               </>
             ) : (
-              <div className="hidden sm:flex items-center space-x-2">
+              <div className="hidden lg:flex items-center space-x-2">
                 <Link href="/login" className="text-xs font-mono text-slate-300 hover:text-white">
                   Sign in
                 </Link>
@@ -148,7 +149,7 @@ export function Navbar() {
             {isAuthenticated && pathname !== '/dashboard' && (
               <Link
                 href="/dashboard"
-                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/20 transition-all"
+                className="hidden lg:inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/20 transition-all"
               >
                 <span>Live Terminal</span>
                 <ChevronRight className="w-3.5 h-3.5 stroke-[3]" />
@@ -158,7 +159,7 @@ export function Navbar() {
         </div>
 
         {/* Mobile Navigation Row */}
-        <div className="flex md:hidden overflow-x-auto py-2 space-x-2 border-t border-slate-800/60 no-scrollbar">
+        <div className="flex xl:hidden overflow-x-auto py-2 space-x-2 border-t border-slate-800/60 no-scrollbar">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -173,6 +174,58 @@ export function Navbar() {
               <span>{item.label}</span>
             </Link>
           ))}
+          <div className="w-px self-stretch bg-slate-800/80" />
+          {isAuthenticated && user?.role === 'admin' && (
+            <Link
+              href="/admin"
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap flex items-center space-x-1 ${
+                isActive('/admin')
+                  ? 'bg-slate-800 text-amber-300 font-bold border border-slate-700'
+                  : 'text-amber-300 hover:text-amber-200'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>Admin</span>
+            </Link>
+          )}
+          {isAuthenticated ? (
+            <>
+              <Link
+                href="/account"
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap flex items-center space-x-1 ${
+                  isActive('/account')
+                    ? 'bg-slate-800 text-cyan-400 font-bold border border-slate-700'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>Account</span>
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap text-slate-400 hover:text-slate-200"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap flex items-center space-x-1 text-slate-400 hover:text-slate-200"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign in</span>
+              </Link>
+              <Link
+                href="/register"
+                className="px-2.5 py-1 rounded-lg text-xs font-mono whitespace-nowrap font-bold border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10"
+              >
+                Register
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -17,8 +17,8 @@ function requestMetadata(req: Request) {
 function refreshCookieOptions(): CookieOptions {
   return {
     httpOnly: true,
-    secure: authEnv.isProduction,
-    sameSite: 'lax',
+    secure: authEnv.isProduction || authEnv.cookieSameSite === 'none',
+    sameSite: authEnv.cookieSameSite,
     domain: authEnv.cookieDomain,
     path: '/api/auth',
     maxAge: authEnv.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
@@ -28,8 +28,8 @@ function refreshCookieOptions(): CookieOptions {
 function csrfCookieOptions(): CookieOptions {
   return {
     httpOnly: false,
-    secure: authEnv.isProduction,
-    sameSite: 'lax',
+    secure: authEnv.isProduction || authEnv.cookieSameSite === 'none',
+    sameSite: authEnv.cookieSameSite,
     domain: authEnv.cookieDomain,
     path: '/api',
     maxAge: authEnv.refreshTokenTtlDays * 24 * 60 * 60 * 1000,

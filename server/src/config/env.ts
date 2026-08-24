@@ -6,6 +6,7 @@ export interface AuthEnvironment {
   accessTokenTtl: string;
   refreshTokenTtlDays: number;
   cookieDomain?: string;
+  cookieSameSite: 'lax' | 'strict' | 'none';
   frontendUrl?: string;
   emailProvider?: string;
   emailFrom?: string;
@@ -26,6 +27,11 @@ export function getAuthEnvironment(): AuthEnvironment {
   const isProduction = nodeEnv === 'production';
   const emailProvider = process.env.EMAIL_PROVIDER;
   const emailApiKey = process.env.EMAIL_API_KEY;
+  const cookieSameSite = (process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax')).toLowerCase();
+
+  if (!['lax', 'strict', 'none'].includes(cookieSameSite)) {
+    throw new Error('COOKIE_SAMESITE must be one of: lax, strict, none.');
+  }
 
   if (isProduction && emailProvider && emailProvider !== 'console' && !emailApiKey) {
     throw new Error('EMAIL_API_KEY is required when EMAIL_PROVIDER is configured in production.');
@@ -43,6 +49,7 @@ export function getAuthEnvironment(): AuthEnvironment {
     accessTokenTtl: process.env.ACCESS_TOKEN_TTL || '15m',
     refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS || 30),
     cookieDomain: process.env.COOKIE_DOMAIN || undefined,
+    cookieSameSite: cookieSameSite as AuthEnvironment['cookieSameSite'],
     frontendUrl: requireInProduction('FRONTEND_URL') || undefined,
     emailProvider,
     emailFrom: process.env.EMAIL_FROM,

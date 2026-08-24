@@ -49,6 +49,7 @@ Production deployments should use sibling subdomains such as:
 - `api.example.com` for the Render backend
 
 Keeping the app and API under the same parent domain improves secure cookie reliability while still allowing exact CORS allowlisting.
+For separate hosted domains such as `*.vercel.app` and `*.onrender.com`, set `COOKIE_SAMESITE=none`, leave `COOKIE_DOMAIN` blank, and keep `FRONTEND_URL` set to the exact Vercel URL.
 
 ## Environment
 
@@ -67,19 +68,29 @@ PORT=3000
 MONGODB_URI=
 FRONTEND_URL=http://localhost:3001
 FRONTEND_URLS=
-BINANCE_REST_URL=https://api.binance.com
-BINANCE_WS_URL=wss://stream.binance.com:9443
+BINANCE_REST_URL=https://data-api.binance.vision
+BINANCE_WS_URL=wss://data-stream.binance.vision:443
 PREDICTION_MODEL_VERSION=indicator-v1
 ACCESS_TOKEN_SECRET=
 REFRESH_TOKEN_SECRET=
 ACCESS_TOKEN_TTL=15m
 REFRESH_TOKEN_TTL_DAYS=30
 COOKIE_DOMAIN=
+COOKIE_SAMESITE=
 EMAIL_PROVIDER=
 EMAIL_FROM=
 EMAIL_API_KEY=
 ADMIN_BOOTSTRAP_EMAIL=
 ```
+
+Vercel should deploy the `client` directory with:
+
+```bash
+NEXT_PUBLIC_API_URL=https://your-render-service.onrender.com/api
+NEXT_PUBLIC_WS_URL=wss://your-render-service.onrender.com/ws
+```
+
+Render should deploy the `server` directory with `FRONTEND_URL` set to the exact Vercel production URL and any preview/custom domains listed in `FRONTEND_URLS`.
 
 Create the first administrator with:
 

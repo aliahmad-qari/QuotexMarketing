@@ -18,8 +18,28 @@ services:
       - key: FRONTEND_URLS
         sync: false
       - key: BINANCE_REST_URL
-        value: https://api.binance.com
+        value: https://data-api.binance.vision
       - key: BINANCE_WS_URL
-        value: wss://stream.binance.com:9443
+        value: wss://data-stream.binance.vision:443
       - key: PREDICTION_MODEL_VERSION
         value: indicator-v1
+      - key: COOKIE_SAMESITE
+        value: none
+      - key: COOKIE_DOMAIN
+        sync: false
+      - key: ACCESS_TOKEN_SECRET
+        sync: false
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
+      - key: ACCESS_TOKEN_TTL
+        value: 15m
+      - key: REFRESH_TOKEN_TTL_DAYS
+        value: 30
+      - key: EMAIL_PROVIDER
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: ADMIN_BOOTSTRAP_EMAIL
+        sync: false

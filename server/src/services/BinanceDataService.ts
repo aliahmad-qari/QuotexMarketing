@@ -14,6 +14,7 @@ export class BinanceDataService {
   private maxReconnectDelay = 30000;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private lastMessageTimestamp = 0;
+  private receivedMessageOnCurrentSocket = false;
   private activeSubscriptions = new Set<string>(); // e.g. "btcusdt@kline_1m", "btcusdt@trade"
 
   private candleListeners: Map<string, Set<CandleListener>> = new Map(); // key: `${symbol}:${timeframe}`
@@ -21,9 +22,17 @@ export class BinanceDataService {
   private marketMetadataMap: Map<MarketSymbol, MarketMetadata> = new Map();
 
   constructor() {
-    this.restUrl = process.env.BINANCE_REST_URL || 'https://api.binance.com';
-    this.wsUrl = process.env.BINANCE_WS_URL || 'wss://stream.binance.com:9443';
+    this.restUrl = process.env.BINANCE_REST_URL || 'https://data-api.binance.vision';
+    this.wsUrl = process.env.BINANCE_WS_URL || 'wss://data-stream.binance.vision:443';
     this.initDefaultMetadata();
+  }
+
+  private getRestUrls(): string[] {
+    return Array.from(new Set([this.restUrl, 'https://data-api.binance.vision']));
+  }
+
+  private getWsUrls(): string[] {
+    return Array.from(new Set([this.wsUrl, 'wss://data-stream.binance.vision:443']));
   }
 
   private initDefaultMetadata() {
@@ -61,35 +70,40 @@ export class BinanceDataService {
    * Fetch 24h ticker metadata for all supported assets
    */
   public async fetch24hTickers(): Promise<MarketMetadata[]> {
-    try {
-      const res = await fetch(`${this.restUrl}/api/v3/ticker/24hr`);
-      if (!res.ok) {
-        throw new Error(`Binance 24hr ticker HTTP error: ${res.statusText}`);
-      }
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        for (const item of data) {
-          const sym = item.symbol as MarketSymbol;
-          if (this.marketMetadataMap.has(sym)) {
-            const existing = this.marketMetadataMap.get(sym)!;
-            const updated: MarketMetadata = {
-              ...existing,
-              lastPrice: parseFloat(item.lastPrice) || 0,
-              priceChange24h: parseFloat(item.priceChange) || 0,
-              priceChangePercent24h: parseFloat(item.priceChangePercent) || 0,
-              high24h: parseFloat(item.highPrice) || 0,
-              low24h: parseFloat(item.lowPrice) || 0,
-              volume24h: parseFloat(item.volume) || 0,
-              quoteVolume24h: parseFloat(item.quoteVolume) || 0,
-              lastUpdated: Date.now(),
-            };
-            this.marketMetadataMap.set(sym, updated);
-            this.notifyTickerListeners(sym, updated);
+    for (const baseUrl of this.getRestUrls()) {
+      try {
+        const res = await fetch(`${baseUrl}/api/v3/ticker/24hr`);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status} ${res.statusText}${body ? `: ${body.slice(0, 160)}` : ''}`);
+        }
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          for (const item of data) {
+            const sym = item.symbol as MarketSymbol;
+            if (this.marketMetadataMap.has(sym)) {
+              const existing = this.marketMetadataMap.get(sym)!;
+              const updated: MarketMetadata = {
+                ...existing,
+                lastPrice: parseFloat(item.lastPrice) || 0,
+                priceChange24h: parseFloat(item.priceChange) || 0,
+                priceChangePercent24h: parseFloat(item.priceChangePercent) || 0,
+                high24h: parseFloat(item.highPrice) || 0,
+                low24h: parseFloat(item.lowPrice) || 0,
+                volume24h: parseFloat(item.volume) || 0,
+                quoteVolume24h: parseFloat(item.quoteVolume) || 0,
+                lastUpdated: Date.now(),
+              };
+              this.marketMetadataMap.set(sym, updated);
+              this.notifyTickerListeners(sym, updated);
+            }
           }
         }
+        this.restUrl = baseUrl;
+        return Array.from(this.marketMetadataMap.values());
+      } catch (err) {
+        console.warn(`[BinanceDataService] Failed to fetch 24h tickers from ${baseUrl}:`, (err as Error).message);
       }
-    } catch (err) {
-      console.warn('[BinanceDataService] Failed to fetch 24h tickers:', (err as Error).message);
     }
     return Array.from(this.marketMetadataMap.values());
   }
@@ -116,14 +130,23 @@ export class BinanceDataService {
 
       // Fetch enough base candles to construct aggregated ones if needed
       const fetchLimit = isNative ? Math.min(limit, 500) : Math.min(limit * multiplier * 2, 500);
-      const url = `${this.restUrl}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${fetchLimit}`;
-
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`Binance klines HTTP error ${res.status}: ${res.statusText}`);
+      let raw: unknown = [];
+      let successfulBaseUrl = this.restUrl;
+      for (const baseUrl of this.getRestUrls()) {
+        const url = `${baseUrl}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${fetchLimit}`;
+        const res = await fetch(url);
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          console.warn(
+            `[BinanceDataService] Klines failed from ${baseUrl} for ${symbol} ${timeframe}: HTTP ${res.status} ${res.statusText}${body ? `: ${body.slice(0, 160)}` : ''}`
+          );
+          continue;
+        }
+        raw = await res.json();
+        successfulBaseUrl = baseUrl;
+        break;
       }
-
-      const raw = await res.json();
+      this.restUrl = successfulBaseUrl;
       if (!Array.isArray(raw)) {
         return [];
       }
@@ -165,12 +188,13 @@ export class BinanceDataService {
 
     this.isConnecting = true;
     const streamEndpoint = `${this.wsUrl}/stream`;
+    this.receivedMessageOnCurrentSocket = false;
 
     try {
       this.wsClient = new WebSocket(streamEndpoint);
 
       this.wsClient.on('open', () => {
-        console.log('[Binance WebSocket] Connected to Binance Public Stream.');
+        console.log(`[Binance WebSocket] Connected to Binance Public Stream: ${streamEndpoint}`);
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         this.lastMessageTimestamp = Date.now();
@@ -184,6 +208,7 @@ export class BinanceDataService {
 
       this.wsClient.on('message', (data: WebSocket.Data) => {
         this.lastMessageTimestamp = Date.now();
+        this.receivedMessageOnCurrentSocket = true;
         this.handleStreamMessage(data.toString());
       });
 
@@ -194,6 +219,11 @@ export class BinanceDataService {
       this.wsClient.on('close', (code, reason) => {
         console.warn(`[Binance WebSocket] Closed (code: ${code}, reason: ${reason}). Scheduling reconnect...`);
         this.stopHeartbeat();
+        const fallback = this.getWsUrls().find((url) => url !== this.wsUrl);
+        if (fallback && !this.receivedMessageOnCurrentSocket) {
+          console.warn(`[Binance WebSocket] No stream data received. Retrying with fallback endpoint: ${fallback}`);
+          this.wsUrl = fallback;
+        }
         this.scheduleReconnect();
       });
     } catch (err) {

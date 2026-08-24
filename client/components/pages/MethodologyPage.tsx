@@ -2,16 +2,11 @@ import React from 'react';
 import {
   AlertTriangle,
   BookOpen,
-  CheckCircle2,
-  Cpu,
   Database,
-  Eye,
-  GitBranch,
   Layers,
   Lock,
   Percent,
   Sliders,
-  Sparkles,
 } from 'lucide-react';
 
 export const MethodologyPage: React.FC = () => {

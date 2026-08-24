@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, BarChart2, Compass, Gauge, Layers, MoveDown, MoveUp, Sliders, Zap } from 'lucide-react';
+import { Activity, BarChart2, Compass, Gauge, Layers, Sliders, Zap } from 'lucide-react';
 import { IndicatorSnapshot } from '../types/market';
 
 interface IndicatorDeckProps {

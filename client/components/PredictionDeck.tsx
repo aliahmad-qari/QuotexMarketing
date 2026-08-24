@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, Cpu, Info, ShieldAlert, Sparkles } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Info, ShieldAlert } from 'lucide-react';
 import { Prediction } from '../types/market';
 
 interface PredictionDeckProps {
