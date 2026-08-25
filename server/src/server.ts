@@ -5,6 +5,7 @@ import http from 'http';
 import { connectDB } from './config/db';
 import { createApp } from './app';
 import { marketHubService } from './services/MarketHubService';
+import { otcPriceService } from './services/OtcPriceService';
 import { setupWebSocketServer } from './websocket/wsServer';
 
 async function startServer() {
@@ -16,6 +17,9 @@ async function startServer() {
 
   await connectDB();
   await marketHubService.initialize();
+
+  // Start background OTC price polling (Forex, Commodities, Indices, Stocks)
+  otcPriceService.start();
 
   httpServer.listen(port, '0.0.0.0', () => {
     console.log(`[Candle Probability Lab API] Listening on http://0.0.0.0:${port}`);

@@ -1,53 +1,87 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Search, TrendingUp, TrendingDown, Lock, Star } from 'lucide-react';
-import { OTC_MARKETS, OTC_MARKET_CATEGORIES, OTC_MARKET_FILTERS, OtcMarketFilter, OtcMarket } from '../constants/otcMarkets';
+import React, { useEffect, useState } from 'react';
+import { Search, TrendingUp, TrendingDown, Star, RefreshCw, Wifi } from 'lucide-react';
+import {
+  OTC_MARKETS,
+  OTC_MARKET_CATEGORIES,
+  OTC_MARKET_FILTERS,
+  OtcMarketFilter,
+  OtcMarket,
+} from '../constants/otcMarkets';
+import { otcPricesClient, OtcPricesMap } from '../services/otcPricesClient';
 
-// Static simulated OTC price data for display purposes
-// In production these would come from a Quotex OTC data feed
-const OTC_MOCK_DATA: Record<string, { price: string; change: number; payout: number }> = {
-  BTCUSD_OTC:  { price: '95,234.50', change:  1.24, payout: 87 },
-  ETHUSD_OTC:  { price: '3,421.80',  change: -0.38, payout: 85 },
-  SOLUSD_OTC:  { price: '182.44',    change:  2.11, payout: 86 },
-  XRPUSD_OTC:  { price: '0.5821',    change:  0.74, payout: 84 },
-  EURUSD_OTC:  { price: '1.0843',    change: -0.12, payout: 88 },
-  GBPUSD_OTC:  { price: '1.2712',    change:  0.08, payout: 88 },
-  USDJPY_OTC:  { price: '149.72',    change: -0.22, payout: 87 },
-  XAUUSD_OTC:  { price: '2,641.30',  change:  0.31, payout: 85 },
-  XAGUSD_OTC:  { price: '31.22',     change: -0.15, payout: 84 },
-  USCRUDE_OTC: { price: '78.54',     change:  1.03, payout: 83 },
-  UKBRENT_OTC: { price: '82.10',     change:  0.91, payout: 83 },
-  NDXUSDI:     { price: '19,842.00', change:  0.64, payout: 82 },
-  SPXUSDI:     { price: '5,621.40',  change:  0.42, payout: 82 },
-  DJIUSDI:     { price: '41,230.00', change:  0.19, payout: 81 },
-  GEREURI:     { price: '18,941.00', change: -0.28, payout: 82 },
-  AUDUSD_OTC:  { price: '0.6523',    change: -0.09, payout: 87 },
-  USDCAD_OTC:  { price: '1.3641',    change:  0.15, payout: 86 },
-  EURJPY_OTC:  { price: '162.38',    change:  0.04, payout: 87 },
-  GBPJPY_OTC:  { price: '190.21',    change:  0.23, payout: 86 },
-  MSFT_OTC:    { price: '422.15',    change:  0.87, payout: 80 },
-  FB_OTC:      { price: '561.30',    change:  1.32, payout: 80 },
-  BNBUSD_OTC:  { price: '412.77',    change:  0.55, payout: 84 },
-  ADAUSD_OTC:  { price: '0.4812',    change: -0.41, payout: 83 },
-  DOGUSD_OTC:  { price: '0.3621',    change:  1.77, payout: 84 },
+type PriceSource = 'binance' | 'twelve_data' | 'frankfurter' | 'goldprice' | 'yahoo';
+
+const SOURCE_LABEL: Record<PriceSource, string> = {
+  binance:     'Binance',
+  frankfurter: 'ECB / Frankfurter',
+  twelve_data: 'Twelve Data',
+  goldprice:   'goldprice.org',
+  yahoo:       'Yahoo Finance',
 };
 
-// Featured / popular OTC markets shown as quick-access tiles
+const SOURCE_DOT: Record<PriceSource, string> = {
+  binance:     'bg-emerald-400',
+  frankfurter: 'bg-slate-400',
+  twelve_data: 'bg-cyan-400',
+  goldprice:   'bg-amber-400',
+  yahoo:       'bg-violet-400',
+};
+
+// Featured instruments shown on the default tab
 const FEATURED_OTC: string[] = [
   'BTCUSD_OTC', 'ETHUSD_OTC', 'EURUSD_OTC', 'XAUUSD_OTC',
   'GBPUSD_OTC', 'USDJPY_OTC', 'SOLUSD_OTC', 'NDXUSDI',
+  'SPXUSDI',   'XAGUSD_OTC',  'MSFT_OTC',   'DJIUSDI',
 ];
 
+// Decimal places per instrument for display
+const PRICE_DECIMALS: Record<string, number> = {
+  BTCUSD_OTC: 2, ETHUSD_OTC: 2, BNBUSD_OTC: 2, SOLUSD_OTC: 2,
+  AVAUSD_OTC: 2, BCHUSD_OTC: 2, ATOUSD_OTC: 3,
+  XRPUSD_OTC: 4, ADAUSD_OTC: 4, DOGUSD_OTC: 4,
+  BONUSD_OTC: 6, FLOUSD_OTC: 3, ARBUSD_OTC: 3, AXSUSD_OTC: 3, APTUSD_OTC: 2,
+  XAUUSD_OTC: 2, XAGUSD_OTC: 3, USCRUDE_OTC: 2, UKBRENT_OTC: 2,
+  EURUSD_OTC: 5, GBPUSD_OTC: 5, USDJPY_OTC: 3, AUDUSD_OTC: 5,
+  USDCAD_OTC: 5, USDCHF_OTC: 5, EURJPY_OTC: 3, GBPJPY_OTC: 3,
+  EURGBP_OTC: 5, EURAUD_OTC: 5, EURCAD_OTC: 5, EURCHF_OTC: 5,
+  EURNZD_OTC: 5, AUDCAD_OTC: 5, AUDCHF_OTC: 5, AUDJPY_OTC: 3,
+  AUDNZD_OTC: 5, CADCHF_OTC: 5, CADJPY_OTC: 3, CHFJPY_OTC: 3,
+  GBPAUD_OTC: 5, GBPCAD_OTC: 5, GBPCHF_OTC: 5, NZDJPY_OTC: 3,
+  NZDUSD_OTC: 5, USDMXN_OTC: 3, USDSGD_OTC: 5, USDBRL_OTC: 3,
+  EURSGD_OTC: 5, EURTRY_OTC: 3, EURHUF_OTC: 0,
+};
+
+function formatPrice(symbol: string, price: number): string {
+  const dec = PRICE_DECIMALS[symbol] ?? 2;
+  return price.toLocaleString('en-US', {
+    minimumFractionDigits: dec,
+    maximumFractionDigits: dec,
+  });
+}
+
 interface OtcMarketsPanelProps {
-  /** Called when user clicks a live-tradeable OTC market tile */
   onSelectOtc?: (market: OtcMarket) => void;
 }
 
 export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc }) => {
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<OtcMarketFilter>('All');
+  const [search, setSearch]       = useState('');
+  const [filter, setFilter]       = useState<OtcMarketFilter>('All');
   const [activeTab, setActiveTab] = useState<'featured' | 'all'>('featured');
+  const [prices, setPrices]       = useState<OtcPricesMap>({});
+  const [lastUpdated, setLastUpdated] = useState<number>(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Subscribe to live price updates
+  useEffect(() => {
+    const unsub = otcPricesClient.subscribe((map) => {
+      setPrices(map);
+      setLastUpdated(Date.now());
+      setIsLoading(false);
+    });
+    return unsub;
+  }, []);
 
   const norm = search.trim().toLowerCase();
 
@@ -61,18 +95,18 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
   );
 
   const featuredMarkets = OTC_MARKETS.filter((m) => FEATURED_OTC.includes(m.symbol));
-
   const displayList = activeTab === 'featured' ? featuredMarkets : filteredAll;
 
-  const getMock = (symbol: string) =>
-    OTC_MOCK_DATA[symbol] || { price: '---', change: 0, payout: 82 };
+  const liveCount = Object.keys(prices).length;
+  const ageSeconds = lastUpdated ? Math.floor((Date.now() - lastUpdated) / 1000) : null;
 
   return (
     <div className="w-full bg-[#0C1017] border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-      {/* Panel Header */}
+
+      {/* ── Header ── */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-950/60">
         <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          <div className={`w-2 h-2 rounded-full ${liveCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-pulse'}`} />
           <span className="font-mono font-bold text-slate-100 text-sm uppercase tracking-wider">
             Quotex OTC Markets
           </span>
@@ -80,13 +114,29 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
             {OTC_MARKETS.length} Instruments
           </span>
         </div>
-        <div className="flex items-center space-x-1.5 text-[10px] font-mono text-slate-400">
-          <Lock className="w-3 h-3 text-amber-400" />
-          <span>OTC Catalog</span>
+
+        {/* Live data badge */}
+        <div className="flex items-center space-x-2">
+          {isLoading ? (
+            <span className="flex items-center space-x-1 text-[10px] font-mono text-amber-400">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>Loading prices…</span>
+            </span>
+          ) : liveCount > 0 ? (
+            <span className="flex items-center space-x-1 text-[10px] font-mono text-emerald-400">
+              <Wifi className="w-3 h-3" />
+              <span>{liveCount} live</span>
+              {ageSeconds !== null && (
+                <span className="text-slate-500">· {ageSeconds < 5 ? 'just now' : `${ageSeconds}s ago`}</span>
+              )}
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono text-rose-400">No price data</span>
+          )}
         </div>
       </div>
 
-      {/* Tabs + Search Row */}
+      {/* ── Tabs + Search ── */}
       <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-800/60 bg-slate-900/30">
         <div className="flex rounded-lg overflow-hidden border border-slate-800 text-xs font-mono">
           <button
@@ -118,14 +168,14 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search OTC..."
+              placeholder="Search OTC…"
               className="w-full bg-transparent text-white placeholder-slate-500 focus:outline-none text-xs font-mono"
             />
           </div>
         )}
       </div>
 
-      {/* Category Filter (all tab only) */}
+      {/* ── Category Filter ── */}
       {activeTab === 'all' && (
         <div className="flex gap-1.5 overflow-x-auto px-4 py-2 border-b border-slate-800/40">
           {OTC_MARKET_FILTERS.map((f) => (
@@ -144,12 +194,12 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
         </div>
       )}
 
-      {/* Market Grid */}
+      {/* ── Market Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-0 divide-x divide-y divide-slate-800/60">
         {displayList.map((market) => {
-          const mock = getMock(market.symbol);
-          const isUp = mock.change >= 0;
-          const hasData = OTC_MOCK_DATA[market.symbol] !== undefined;
+          const live = prices[market.symbol];
+          const hasLive = !!live;
+          const isUp = hasLive ? live.changePct >= 0 : true;
 
           return (
             <button
@@ -158,15 +208,18 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
               onClick={() => onSelectOtc?.(market)}
               className="group p-3 text-left hover:bg-slate-800/50 transition-colors relative"
             >
-              {/* OTC Badge */}
-              <div className="absolute top-2 right-2">
+              {/* Source badge */}
+              <div className="absolute top-2 right-2 flex items-center space-x-1">
+                {hasLive && (
+                  <span className={`w-1.5 h-1.5 rounded-full ${SOURCE_DOT[live.source as PriceSource] ?? 'bg-slate-400'}`} />
+                )}
                 <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
                   OTC
                 </span>
               </div>
 
               {/* Symbol + Category */}
-              <div className="pr-8">
+              <div className="pr-10">
                 <div className="font-mono font-bold text-white text-xs leading-tight truncate">
                   {market.displaySymbol}
                 </div>
@@ -177,33 +230,31 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
 
               {/* Price */}
               <div className="mt-2">
-                <div className="font-mono font-semibold text-slate-200 text-[11px] tabular-nums">
-                  {hasData ? mock.price : '---'}
-                </div>
-                <div
-                  className={`flex items-center space-x-1 text-[10px] font-mono font-bold mt-0.5 ${
-                    isUp ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  {isUp ? (
-                    <TrendingUp className="w-3 h-3" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3" />
-                  )}
-                  <span>
-                    {isUp ? '+' : ''}
-                    {hasData ? `${mock.change.toFixed(2)}%` : '---'}
-                  </span>
-                </div>
+                {hasLive ? (
+                  <>
+                    <div className="font-mono font-semibold text-slate-100 text-[11px] tabular-nums">
+                      {formatPrice(market.symbol, live.price)}
+                    </div>
+                    <div className={`flex items-center space-x-0.5 text-[10px] font-mono font-bold mt-0.5 ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                      <span>{isUp ? '+' : ''}{live.changePct.toFixed(2)}%</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="font-mono text-slate-600 text-[11px]">
+                    {isLoading ? (
+                      <span className="inline-block w-12 h-3 bg-slate-800 rounded animate-pulse" />
+                    ) : '---'}
+                  </div>
+                )}
               </div>
 
-              {/* Payout */}
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[9px] text-slate-500 font-mono">Payout</span>
-                <span className="text-[10px] font-bold font-mono text-emerald-300">
-                  {hasData ? `+${mock.payout}%` : '---'}
-                </span>
-              </div>
+              {/* Source label */}
+              {hasLive && (
+                <div className="mt-1.5 text-[8px] font-mono text-slate-600 truncate">
+                  via {SOURCE_LABEL[live.source as PriceSource] ?? live.source}
+                </div>
+              )}
 
               {/* Hover glow */}
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-br from-cyan-500/5 to-transparent" />
@@ -212,12 +263,18 @@ export const OtcMarketsPanel: React.FC<OtcMarketsPanelProps> = ({ onSelectOtc })
         })}
       </div>
 
-      {/* Footer Note */}
-      <div className="px-4 py-2.5 border-t border-slate-800/60 bg-slate-950/40 flex items-center justify-between">
+      {/* ── Footer ── */}
+      <div className="px-4 py-2.5 border-t border-slate-800/60 bg-slate-950/40 flex items-center justify-between flex-wrap gap-2">
         <p className="text-[9px] font-mono text-slate-500">
-          OTC instruments are available on the Quotex platform. Prices shown are indicative only.
+          Prices are real underlying market equivalents — not Quotex synthetic OTC prices. Updates every 60s.
         </p>
-        <span className="text-[9px] font-mono text-slate-600">{displayList.length} shown</span>
+        <div className="flex items-center space-x-3 text-[9px] font-mono text-slate-600">
+          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1" />Binance</span>
+          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-cyan-400 mr-1" />Twelve Data</span>
+          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 mr-1" />Metals</span>
+          <span><span className="inline-block w-1.5 h-1.5 rounded-full bg-violet-400 mr-1" />Yahoo</span>
+          <span>{displayList.length} shown</span>
+        </div>
       </div>
     </div>
   );

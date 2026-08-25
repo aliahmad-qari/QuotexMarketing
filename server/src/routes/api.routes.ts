@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { MarketController } from '../controllers/market.controller';
+import { OtcPriceController } from '../controllers/otcPrice.controller';
 import { PerformanceController } from '../controllers/performance.controller';
 import { PredictionController } from '../controllers/prediction.controller';
 import { isDbConnected } from '../config/db';
@@ -31,6 +32,9 @@ router.get('/health', (req, res) => {
 // Market endpoints
 router.get('/markets', MarketController.getMarkets);
 router.get('/candles/:symbol', MarketController.getCandles);
+
+// OTC underlying prices (Forex, Commodities, Indices, Stocks via free APIs)
+router.get('/otc-prices', OtcPriceController.getPrices);
 
 // Prediction endpoints
 router.get('/predictions', PredictionController.getPredictions);
