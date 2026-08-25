@@ -54,11 +54,30 @@ const BINANCE_MAP: Record<string, string> = {
   APTUSD_OTC: 'APTUSDT',
 };
 
-// ── 2. Frankfurter forex map ──────────────────────────────────────────────────
-// Frankfurter always converts FROM a base currency TO others.
-// Strategy: fetch once with base=USD to get all USD/XXX rates,
-// then compute cross-rates mathematically (no extra API calls).
-// OTC symbol → [base, quote] in the OTC display convention
+// ── 2. Forex pair maps ────────────────────────────────────────────────────────
+//
+// STRATEGY (stays within Twelve Data free tier: 8 credits/min):
+//   • MAJORS (8 pairs)  → Twelve Data  — intraday real-time, 1 credit each = 8 total
+//   • ALL OTHERS        → Frankfurter (ECB) — daily reference rate, no key, no limit
+//
+// The 8 majors cover the most-watched pairs on the OTC panel.
+// Exotic pairs (AED/CNY, BHD/CNY, OMR/CNY, QAR/CNY, TND/USD, USD/PKR,
+// USD/DZD, USD/CLP, USD/COP, USD/EGP) are not available on Twelve Data
+// free tier regardless, so Frankfurter is the right source for them.
+
+// Pairs fetched via Twelve Data (exactly 8 = uses all 8 credits per call)
+const TWELVE_DATA_FOREX: Record<string, string> = {
+  EURUSD_OTC: 'EUR/USD',
+  GBPUSD_OTC: 'GBP/USD',
+  USDJPY_OTC: 'USD/JPY',
+  AUDUSD_OTC: 'AUD/USD',
+  USDCAD_OTC: 'USD/CAD',
+  USDCHF_OTC: 'USD/CHF',
+  NZDUSD_OTC: 'NZD/USD',
+  USDSGD_OTC: 'USD/SGD',
+};
+
+// All forex pairs — used by Frankfurter fallback and for cross-rate computation
 const FOREX_PAIRS: Record<string, [string, string]> = {
   EURUSD_OTC: ['EUR', 'USD'],
   GBPUSD_OTC: ['GBP', 'USD'],
@@ -91,7 +110,7 @@ const FOREX_PAIRS: Record<string, [string, string]> = {
   EURSGD_OTC: ['EUR', 'SGD'],
   EURTRY_OTC: ['EUR', 'TRY'],
   EURHUF_OTC: ['EUR', 'HUF'],
-  USDCNH_OTC: ['USD', 'CNY'], // CNH ≈ CNY for reference rate
+  USDCNH_OTC: ['USD', 'CNY'],
   USDEGP_OTC: ['USD', 'EGP'],
   USDPKR_OTC: ['USD', 'PKR'],
   USDCLP_OTC: ['USD', 'CLP'],
@@ -100,6 +119,11 @@ const FOREX_PAIRS: Record<string, [string, string]> = {
   ZARUSD_OTC: ['ZAR', 'USD'],
   BRLUSD_OTC: ['BRL', 'USD'],
   TNDUSD_OTC: ['TND', 'USD'],
+  // Exotic pairs — ECB/Frankfurter only (not on Twelve Data free)
+  AEDCNY_OTC: ['AED', 'CNY'],
+  BHDCNY_OTC: ['BHD', 'CNY'],
+  OMRCNY_OTC: ['OMR', 'CNY'],
+  QARCNY_OTC: ['QAR', 'CNY'],
 };
 
 // ── 4. Yahoo Finance map ──────────────────────────────────────────────────────
@@ -228,48 +252,47 @@ export class OtcPriceService {
   // Falls back to Frankfurter ECB rates if key missing or 429 returned.
 
   private async fetchForex() {
-    if (this.TWELVE_DATA_KEY) {
-      const fetched = await this.fetchForexTwelveData();
-      if (fetched) return; // success — done
-      // If Twelve Data failed (429 / error), fall through to Frankfurter
-      console.warn('[OtcPrice] Twelve Data forex failed — falling back to Frankfurter ECB');
-    }
-    await this.fetchForexFrankfurter();
+    // Run both in parallel:
+    // • Twelve Data  → 8 major pairs (real-time, 8 credits = exactly the per-minute limit)
+    // • Frankfurter  → all remaining pairs (ECB daily rate, no limit, fills the gaps)
+    await Promise.allSettled([
+      this.fetchForexTwelveData(),
+      this.fetchForexFrankfurter(),
+    ]);
   }
 
   private async fetchForexTwelveData(): Promise<boolean> {
-    try {
-      // Build comma-separated list of Twelve Data forex symbols
-      // Twelve Data uses "EUR/USD" format — same as our FOREX_PAIRS values [base, quote]
-      const symbolList = Object.entries(FOREX_PAIRS)
-        .map(([, [base, quote]]) => `${base}/${quote}`)
-        .join(',');
+    if (!this.TWELVE_DATA_KEY) return false;
 
-      // /price returns just the latest price — 1 credit for the whole batch
+    try {
+      // Only the 8 major pairs — exactly 8 credits, fits the 8/min free limit
+      const symbolList = Object.values(TWELVE_DATA_FOREX).join(',');
       const url = `${this.TWELVE_DATA_BASE}/price?symbol=${encodeURIComponent(symbolList)}&apikey=${this.TWELVE_DATA_KEY}`;
       const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
 
-      if (res.status === 429) return false; // rate limit — fallback
+      if (res.status === 429) {
+        console.warn('[OtcPrice] Twelve Data rate limited (429) — majors will use Frankfurter this cycle');
+        return false;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const data: Record<string, { price?: string; status?: string }> = await res.json();
       const now = Date.now();
 
-      for (const [otc, [base, quote]] of Object.entries(FOREX_PAIRS)) {
-        const key = `${base}/${quote}`;
-        const entry = data[key];
+      for (const [otcSymbol, tdSymbol] of Object.entries(TWELVE_DATA_FOREX)) {
+        const entry = data[tdSymbol];
         if (!entry || entry.status === 'error' || !entry.price) continue;
 
         const price = parseFloat(entry.price);
         if (isNaN(price) || price <= 0) continue;
 
-        const prev = this.cache.get(otc);
+        const prev = this.cache.get(otcSymbol);
         const prevPrice = prev?.price ?? price;
         const change    = price - prevPrice;
         const changePct = prevPrice > 0 ? (change / prevPrice) * 100 : 0;
 
-        this.cache.set(otc, {
-          symbol: otc,
+        this.cache.set(otcSymbol, {
+          symbol: otcSymbol,
           price,
           change,
           changePct,
@@ -278,7 +301,7 @@ export class OtcPriceService {
         });
       }
 
-      console.log('[OtcPrice] Twelve Data forex updated —', Object.keys(FOREX_PAIRS).length, 'pairs');
+      console.log('[OtcPrice] Twelve Data: 8 major forex pairs updated');
       return true;
     } catch (e) {
       console.warn('[OtcPrice] Twelve Data forex error:', (e as Error).message);
