@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { Search, TrendingUp, TrendingDown, Star, RefreshCw, Wifi } from 'lucide-react';
 import {
   OTC_MARKETS,
-  OTC_MARKET_CATEGORIES,
   OTC_MARKET_FILTERS,
   OtcMarketFilter,
   OtcMarket,

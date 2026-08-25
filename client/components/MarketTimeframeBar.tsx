@@ -7,8 +7,6 @@ import {
   ChevronDown,
   Clock,
   Search,
-  TrendingUp,
-  TrendingDown,
 } from 'lucide-react';
 import { OTC_MARKET_CATEGORIES, OTC_MARKET_FILTERS, OTC_MARKETS, OtcMarketFilter } from '../constants/otcMarkets';
 import { MarketMetadata, MarketSymbol, Timeframe } from '../types/market';
@@ -139,7 +137,6 @@ export const MarketTimeframeBar: React.FC<MarketTimeframeBarProps> = ({
                     key={item.symbol}
                     onClick={() => {
                       onSelectSymbol(item.symbol);
-                      setOtcNotice('');
                       setIsDropdownOpen(false);
                     }}
                     className={`w-full p-2 rounded-xl flex items-center space-x-2.5 transition-all ${
