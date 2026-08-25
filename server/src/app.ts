@@ -6,6 +6,8 @@ import apiRoutes from './routes/api.routes';
 export function createApp() {
   const app = express();
 
+  app.set('trust proxy', 1);
+
   app.use(securityHeaders);
   app.use(corsMiddleware);
   app.use(cookieParser());
