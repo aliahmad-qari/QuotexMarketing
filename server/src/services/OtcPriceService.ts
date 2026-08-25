@@ -77,6 +77,18 @@ const TWELVE_DATA_FOREX: Record<string, string> = {
   USDSGD_OTC: 'USD/SGD',
 };
 
+// Yahoo Finance fallback symbols for the 8 majors (used when Twelve Data fails)
+const YAHOO_FOREX_FALLBACK: Record<string, string> = {
+  EURUSD_OTC: 'EURUSD=X',
+  GBPUSD_OTC: 'GBPUSD=X',
+  USDJPY_OTC: 'USDJPY=X',
+  AUDUSD_OTC: 'AUDUSD=X',
+  USDCAD_OTC: 'USDCAD=X',
+  USDCHF_OTC: 'USDCHF=X',
+  NZDUSD_OTC: 'NZDUSD=X',
+  USDSGD_OTC: 'USDSGD=X',
+};
+
 // All forex pairs — used by Frankfurter fallback and for cross-rate computation
 const FOREX_PAIRS: Record<string, [string, string]> = {
   EURUSD_OTC: ['EUR', 'USD'],
@@ -252,13 +264,20 @@ export class OtcPriceService {
   // Falls back to Frankfurter ECB rates if key missing or 429 returned.
 
   private async fetchForex() {
-    // Run both in parallel:
-    // • Twelve Data  → 8 major pairs (real-time, 8 credits = exactly the per-minute limit)
-    // • Frankfurter  → all remaining pairs (ECB daily rate, no limit, fills the gaps)
-    await Promise.allSettled([
-      this.fetchForexTwelveData(),
+    // Run Frankfurter (all pairs, ECB daily) + Twelve Data (8 majors, intraday) in parallel
+    const [, tdSuccess] = await Promise.allSettled([
       this.fetchForexFrankfurter(),
+      this.fetchForexTwelveData(),
     ]);
+
+    // If Twelve Data failed, fill the 8 majors from Yahoo Finance as fallback
+    if (tdSuccess.status === 'rejected' || !(tdSuccess as PromiseFulfilledResult<boolean>).value) {
+      await Promise.allSettled(
+        Object.entries(YAHOO_FOREX_FALLBACK).map(([otc, yahoo]) =>
+          this.fetchYahooSingle(otc, yahoo)
+        )
+      );
+    }
   }
 
   private async fetchForexTwelveData(): Promise<boolean> {
@@ -339,61 +358,18 @@ export class OtcPriceService {
     }
   }
 
-  // ── 3. goldprice.org (XAU + XAG + Oil + Brent) ───────────────────────────
-  // data-asg.goldprice.org returns XAU and XAG spot price in USD/troy oz.
-  // Used by goldprice.org itself — no key, browser-accessible.
+  // ── 3. Metals (XAU + XAG) + Oil ─────────────────────────────────────────
+  // Yahoo Finance futures — no key, confirmed working from server-side.
+  // GC=F = Gold futures, SI=F = Silver futures
+  // CL=F = WTI Crude, BZ=F = Brent Crude
 
   private async fetchMetals() {
-    try {
-      const res = await fetch('https://data-asg.goldprice.org/dbXRates/USD', {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Referer': 'https://goldprice.org',
-        },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: { items?: Array<{ xauPrice?: number; xagPrice?: number }> } = await res.json();
-
-      const item = data?.items?.[0];
-      if (!item) return;
-
-      const now = Date.now();
-
-      if (item.xauPrice && item.xauPrice > 0) {
-        const prev = this.cache.get('XAUUSD_OTC');
-        const change = prev ? item.xauPrice - prev.price : 0;
-        const changePct = prev?.price ? (change / prev.price) * 100 : 0;
-        this.cache.set('XAUUSD_OTC', {
-          symbol: 'XAUUSD_OTC',
-          price: item.xauPrice,
-          change,
-          changePct,
-          source: 'goldprice',
-          updatedAt: now,
-        });
-      }
-
-      if (item.xagPrice && item.xagPrice > 0) {
-        const prev = this.cache.get('XAGUSD_OTC');
-        const change = prev ? item.xagPrice - prev.price : 0;
-        const changePct = prev?.price ? (change / prev.price) * 100 : 0;
-        this.cache.set('XAGUSD_OTC', {
-          symbol: 'XAGUSD_OTC',
-          price: item.xagPrice,
-          change,
-          changePct,
-          source: 'goldprice',
-          updatedAt: now,
-        });
-      }
-    } catch (e) {
-      console.warn('[OtcPrice] goldprice.org failed:', (e as Error).message);
-    }
-
-    // Crude oil & Brent via Yahoo Finance (WTI = CL=F, Brent = BZ=F)
-    await this.fetchYahooSingle('USCRUDE_OTC', 'CL=F');
-    await this.fetchYahooSingle('UKBRENT_OTC', 'BZ=F');
+    await Promise.allSettled([
+      this.fetchYahooSingle('XAUUSD_OTC', 'GC=F'),
+      this.fetchYahooSingle('XAGUSD_OTC', 'SI=F'),
+      this.fetchYahooSingle('USCRUDE_OTC', 'CL=F'),
+      this.fetchYahooSingle('UKBRENT_OTC', 'BZ=F'),
+    ]);
   }
 
   // ── 4. Yahoo Finance (indices + stocks) ──────────────────────────────────

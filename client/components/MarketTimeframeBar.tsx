@@ -1,16 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowDownRight,
   ArrowUpRight,
   ChevronDown,
   Clock,
-  Lock,
   Search,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { OTC_MARKET_CATEGORIES, OTC_MARKET_FILTERS, OTC_MARKETS, OtcMarketFilter } from '../constants/otcMarkets';
 import { MarketMetadata, MarketSymbol, Timeframe } from '../types/market';
+import { otcPricesClient, OtcPricesMap } from '../services/otcPricesClient';
+
+// Decimal places for price display in the dropdown
+const FOREX_DECIMALS: Record<string, number> = {
+  USDJPY_OTC: 3, EURJPY_OTC: 3, GBPJPY_OTC: 3, AUDJPY_OTC: 3,
+  CADJPY_OTC: 3, CHFJPY_OTC: 3, NZDJPY_OTC: 3, USDMXN_OTC: 3,
+  USDBRL_OTC: 3, EURTRY_OTC: 3, EURHUF_OTC: 0, USDEGP_OTC: 3,
+  USDPKR_OTC: 3,
+};
+function fmtOtcPrice(sym: string, price: number): string {
+  const dec = FOREX_DECIMALS[sym] ?? (price > 100 ? 2 : 5);
+  return price.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
 
 interface MarketTimeframeBarProps {
   symbol: MarketSymbol;
@@ -54,8 +68,14 @@ export const MarketTimeframeBar: React.FC<MarketTimeframeBarProps> = ({
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [otcNotice, setOtcNotice] = useState('');
   const [otcFilter, setOtcFilter] = useState<OtcMarketFilter>('All');
+  const [otcPrices, setOtcPrices] = useState<OtcPricesMap>({});
+
+  // Subscribe to live OTC prices for the dropdown
+  useEffect(() => {
+    const unsub = otcPricesClient.subscribe((map) => setOtcPrices(map));
+    return unsub;
+  }, []);
 
   const isPositive = (metadata?.priceChangePercent24h || 0) >= 0;
   const currentAsset = SUPPORTED_SYMBOLS.find((s) => s.symbol === symbol) || SUPPORTED_SYMBOLS[0];
@@ -102,21 +122,12 @@ export const MarketTimeframeBar: React.FC<MarketTimeframeBarProps> = ({
                   <input
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setOtcNotice('');
-                    }}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search asset or OTC market..."
                     className="w-full bg-transparent text-white placeholder-slate-500 focus:outline-none text-xs"
                     autoFocus
                   />
                 </div>
-
-                {otcNotice && (
-                  <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[10px] leading-4 text-amber-200">
-                    {otcNotice}
-                  </div>
-                )}
               </div>
 
               <div className="max-h-96 overflow-y-auto p-1.5 space-y-2">
@@ -161,10 +172,7 @@ export const MarketTimeframeBar: React.FC<MarketTimeframeBarProps> = ({
                       <button
                         key={filter}
                         type="button"
-                        onClick={() => {
-                          setOtcFilter(filter);
-                          setOtcNotice('');
-                        }}
+                        onClick={() => setOtcFilter(filter)}
                         className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-bold transition-all ${
                           otcFilter === filter
                             ? 'border-cyan-400 bg-cyan-400 text-slate-950'
@@ -186,31 +194,45 @@ export const MarketTimeframeBar: React.FC<MarketTimeframeBarProps> = ({
                           {category}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                          {markets.map((market) => (
-                            <button
-                              key={market.symbol}
-                              type="button"
-                              onClick={() =>
-                                setOtcNotice(
-                                  `${market.displaySymbol} is visible as an OTC catalog market only. Live OTC candles require an approved Quotex/OTC data provider before this can be selected.`
-                                )
-                              }
-                              className="w-full p-2 rounded-xl flex items-center space-x-2.5 text-left text-slate-400 hover:text-amber-200 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 transition-all"
-                            >
-                              <div className="w-6 h-6 shrink-0 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-300">
-                                <Lock className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="truncate font-bold text-slate-100">{market.displaySymbol}</span>
-                                  <span className="rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-200">
-                                    OTC
-                                  </span>
+                          {markets.map((market) => {
+                            const live = otcPrices[market.symbol];
+                            const isUp = live ? live.changePct >= 0 : true;
+                            return (
+                              <button
+                                key={market.symbol}
+                                type="button"
+                                onClick={() => setIsDropdownOpen(false)}
+                                className="w-full p-2 rounded-xl flex items-center space-x-2.5 text-left hover:bg-slate-800/70 border border-transparent hover:border-slate-700/60 transition-all"
+                              >
+                                {/* Price dot indicator */}
+                                <div className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
+                                  live
+                                    ? isUp ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                                    : 'bg-slate-800 text-slate-500'
+                                }`}>
+                                  {live ? (isUp ? '▲' : '▼') : '~'}
                                 </div>
-                                <div className="truncate text-[10px] text-slate-500">{market.label.replace(' OTC', '')}</div>
-                              </div>
-                            </button>
-                          ))}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="truncate font-bold text-slate-100 text-[11px]">{market.displaySymbol}</span>
+                                    <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[8px] font-bold text-amber-300 shrink-0">OTC</span>
+                                  </div>
+                                  {live ? (
+                                    <div className="flex items-center justify-between mt-0.5">
+                                      <span className="text-[10px] text-slate-300 tabular-nums font-mono">
+                                        {fmtOtcPrice(market.symbol, live.price)}
+                                      </span>
+                                      <span className={`text-[9px] font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {isUp ? '+' : ''}{live.changePct.toFixed(2)}%
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-slate-600 mt-0.5">{market.label.replace(' OTC', '')}</div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     );
