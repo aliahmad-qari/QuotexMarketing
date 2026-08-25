@@ -169,7 +169,17 @@ export class BinanceDataService {
         return baseCandles.slice(-limit);
       }
 
-      // Aggregate into requested custom timeframe
+      // For sub-minute timeframes (5s/10s/15s/30s): the 1s endpoint is not public.
+      // We use 1m candles as a historical seed so the chart isn't blank on load.
+      // Live trade-stream ticks will build the real sub-minute candles on top.
+      const isSubMinute = ['5s', '10s', '15s', '30s'].includes(timeframe);
+      if (isSubMinute) {
+        // Re-tag candles with the requested sub-minute timeframe so the client
+        // matches them to the correct stream key.
+        return baseCandles.slice(-limit).map((c) => ({ ...c, timeframe }));
+      }
+
+      // Aggregate into requested custom timeframe (2m, 3h)
       const aggregated = CandleAggregatorService.aggregateCandles(baseCandles, timeframe, symbol);
       return aggregated.slice(-limit);
     } catch (err) {
@@ -383,19 +393,23 @@ export class BinanceDataService {
         // Notify direct listeners for native timeframe
         this.notifyCandleListeners(sym, interval, candle, isClosed);
 
-        // If this is 1m kline, feed aggregation for 2m
+        // If this is 1m kline, feed stateful rolling aggregation for 2m
         if (interval === '1m') {
-          const aggregated2m = CandleAggregatorService.aggregateCandles([candle], '2m', sym);
-          if (aggregated2m.length > 0) {
-            this.notifyCandleListeners(sym, '2m', aggregated2m[0], aggregated2m[0].isClosed);
+          const { candle: agg2m, wasClosed: closed2m, closedCandle: closed2mCandle } =
+            CandleAggregatorService.processKline(sym, '2m', candle);
+          if (closed2m && closed2mCandle) {
+            this.notifyCandleListeners(sym, '2m', closed2mCandle, true);
           }
+          this.notifyCandleListeners(sym, '2m', agg2m, false);
         }
-        // If this is 1h kline, feed aggregation for 3h
+        // If this is 1h kline, feed stateful rolling aggregation for 3h
         if (interval === '1h') {
-          const aggregated3h = CandleAggregatorService.aggregateCandles([candle], '3h', sym);
-          if (aggregated3h.length > 0) {
-            this.notifyCandleListeners(sym, '3h', aggregated3h[0], aggregated3h[0].isClosed);
+          const { candle: agg3h, wasClosed: closed3h, closedCandle: closed3hCandle } =
+            CandleAggregatorService.processKline(sym, '3h', candle);
+          if (closed3h && closed3hCandle) {
+            this.notifyCandleListeners(sym, '3h', closed3hCandle, true);
           }
+          this.notifyCandleListeners(sym, '3h', agg3h, false);
         }
       }
 

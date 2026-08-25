@@ -24,8 +24,10 @@ export class WebSocketClient {
   private ws: WebSocket | null = null;
   private status: ConnectionStatus = 'disconnected';
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 20;
+  private maxReconnectAttempts = 50; // effectively unlimited with the cap on delay
   private pingInterval: NodeJS.Timeout | null = null;
+  private staleCheckInterval: NodeJS.Timeout | null = null;
+  private lastMessageAt = 0;
   private currentSymbol: MarketSymbol | null = null;
   private currentTimeframe: Timeframe | null = null;
 
@@ -55,8 +57,9 @@ export class WebSocketClient {
     const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
 
     if (!wsUrl) {
-      console.error('[WS Client] NEXT_PUBLIC_WS_URL is required for WebSocket connections.');
+      console.error('[WS Client] NEXT_PUBLIC_WS_URL is not set.');
       this.setStatus('disconnected');
+      setTimeout(() => this.connect(), 5000);
       return;
     }
 
@@ -66,7 +69,9 @@ export class WebSocketClient {
       this.ws.onopen = () => {
         this.setStatus('connected');
         this.reconnectAttempts = 0;
+        this.lastMessageAt = Date.now();
         this.startHeartbeat();
+        this.startStaleCheck();
 
         // Resubscribe if active pair was selected
         if (this.currentSymbol && this.currentTimeframe) {
@@ -75,6 +80,7 @@ export class WebSocketClient {
       };
 
       this.ws.onmessage = (event) => {
+        this.lastMessageAt = Date.now();
         try {
           const msg = JSON.parse(event.data);
           this.handleMessage(msg);
@@ -89,6 +95,7 @@ export class WebSocketClient {
 
       this.ws.onclose = () => {
         this.stopHeartbeat();
+        this.stopStaleCheck();
         this.setStatus('disconnected');
         this.scheduleReconnect();
       };
@@ -100,13 +107,15 @@ export class WebSocketClient {
 
   private scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      this.setStatus('disconnected');
-      return;
+      // Reset counter so we keep trying indefinitely (server may be starting up)
+      this.reconnectAttempts = 0;
     }
 
     this.setStatus('reconnecting');
     this.reconnectAttempts++;
+    // Back off: 1s → 1.5s → 2.25s → ... capped at 15s
     const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 15000);
+    console.log(`[WS Client] Reconnecting in ${Math.round(delay)}ms (attempt ${this.reconnectAttempts})…`);
     setTimeout(() => {
       this.connect();
     }, delay);
@@ -125,6 +134,25 @@ export class WebSocketClient {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
+    }
+  }
+
+  /** Detect stale connections: if no message in 45s, force reconnect */
+  private startStaleCheck() {
+    this.stopStaleCheck();
+    this.staleCheckInterval = setInterval(() => {
+      if (this.lastMessageAt > 0 && Date.now() - this.lastMessageAt > 45000) {
+        console.warn('[WS Client] Stale connection detected — forcing reconnect');
+        this.setStatus('stale');
+        this.ws?.close();
+      }
+    }, 15000);
+  }
+
+  private stopStaleCheck() {
+    if (this.staleCheckInterval) {
+      clearInterval(this.staleCheckInterval);
+      this.staleCheckInterval = null;
     }
   }
 

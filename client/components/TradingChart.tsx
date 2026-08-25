@@ -34,15 +34,23 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  // Track whether the chart has been seeded with initial data so we can use
+  // update() instead of setData() for live ticks.
+  const isSeededRef = useRef(false);
+  const prevCandleCountRef = useRef(0);
   const [activePrice, setActivePrice] = useState<{ price: number; open: number; high: number; low: number } | null>(
     null
   );
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const initialWidth = containerRef.current.clientWidth || 640;
+    const initialHeight = containerRef.current.clientHeight || 360;
 
     // Create Lightweight Chart
     const chart = createChart(containerRef.current, {
+      width: initialWidth,
+      height: initialHeight,
       layout: {
         background: { type: ColorType.Solid, color: '#0B0E14' },
         textColor: '#94A3B8',
@@ -72,7 +80,10 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         borderColor: '#1E293B',
         timeVisible: true,
         secondsVisible: ['5s', '10s', '15s', '30s'].includes(timeframe),
-        rightOffset: 12, // Space for projected candles visualizer
+        rightOffset: initialWidth < 640 ? 3 : 8,
+        barSpacing: initialWidth < 640 ? 6 : 8,
+        fixLeftEdge: false,
+        lockVisibleTimeRangeOnResize: true,
       },
       rightPriceScale: {
         borderColor: '#1E293B',
@@ -118,6 +129,10 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
 
+    // Reset seeded state whenever the chart instance is recreated (timeframe change)
+    isSeededRef.current = false;
+    prevCandleCountRef.current = 0;
+
     // Handle crosshair move for tooltip / active values
     chart.subscribeCrosshairMove((param) => {
       if (!param || !param.time || !param.seriesData) {
@@ -146,7 +161,14 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries.length > 0 && chartRef.current && containerRef.current) {
         const { width, height } = entries[0].contentRect;
-        chartRef.current.applyOptions({ width, height });
+        chartRef.current.applyOptions({
+          width,
+          height,
+          timeScale: {
+            rightOffset: width < 640 ? 3 : 8,
+            barSpacing: width < 640 ? 6 : 8,
+          },
+        });
       }
     });
 
@@ -164,10 +186,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
     if (!candleSeriesRef.current || !volumeSeriesRef.current || !candles.length) return;
 
     try {
-      // Format candles for lightweight-charts
+      // Sort and deduplicate by second-precision timestamp (lightweight-charts requirement)
       const sorted = [...candles].sort((a, b) => a.openTime - b.openTime);
 
-      // Deduplicate timestamps
       const uniqueCandles: Candle[] = [];
       const seen = new Set<number>();
       for (const c of sorted) {
@@ -178,25 +199,53 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         }
       }
 
-      const formattedCandles = uniqueCandles.map((c) => ({
+      const toBarData = (c: Candle) => ({
         time: Math.floor(c.openTime / 1000) as UTCTimestamp,
         open: c.open,
         high: c.high,
         low: c.low,
         close: c.close,
-      }));
+      });
 
-      const formattedVolumes = uniqueCandles.map((c) => ({
+      const toVolData = (c: Candle) => ({
         time: Math.floor(c.openTime / 1000) as UTCTimestamp,
         value: c.volume,
         color: c.close >= c.open ? 'rgba(16, 185, 129, 0.35)' : 'rgba(244, 63, 94, 0.35)',
-      }));
+      });
 
-      candleSeriesRef.current.setData(formattedCandles);
-      volumeSeriesRef.current.setData(formattedVolumes);
+      const newCount = uniqueCandles.length;
 
-      if (sorted.length > 0) {
-        const last = sorted[sorted.length - 1];
+      if (!isSeededRef.current) {
+        // ── Initial seed: full setData + fit to view ─────────────────────────
+        candleSeriesRef.current.setData(uniqueCandles.map(toBarData));
+        volumeSeriesRef.current.setData(uniqueCandles.map(toVolData));
+        chartRef.current?.timeScale().fitContent();
+        // Pin newest candle to right edge for live trading feel
+        chartRef.current?.timeScale().scrollToRealTime();
+        isSeededRef.current = true;
+        prevCandleCountRef.current = newCount;
+      } else if (newCount > prevCandleCountRef.current) {
+        // ── A genuinely new candle was appended (closed + new one opened) ────
+        // Update the previous last candle (now closed/finalized) and append new
+        // ones via update() so lightweight-charts stays smooth.
+        const startIndex = prevCandleCountRef.current - 1; // re-push the last known candle too
+        const toUpdate = uniqueCandles.slice(Math.max(0, startIndex));
+        for (const c of toUpdate) {
+          candleSeriesRef.current.update(toBarData(c));
+          volumeSeriesRef.current.update(toVolData(c));
+        }
+        prevCandleCountRef.current = newCount;
+        // Scroll so the newest candle stays visible at the right edge
+        chartRef.current?.timeScale().scrollToRealTime();
+      } else {
+        // ── Same number of candles: live tick on the current (last) candle ───
+        const last = uniqueCandles[uniqueCandles.length - 1];
+        candleSeriesRef.current.update(toBarData(last));
+        volumeSeriesRef.current.update(toVolData(last));
+      }
+
+      if (uniqueCandles.length > 0) {
+        const last = uniqueCandles[uniqueCandles.length - 1];
         setActivePrice({
           price: last.close,
           open: last.open,
@@ -214,12 +263,12 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   const hasCandles = candles.length > 0;
 
   return (
-    <div className="relative w-full h-[520px] bg-[#0B0E14] border border-slate-800/80 rounded-xl overflow-hidden shadow-2xl flex flex-col">
+    <div className="relative w-full h-[300px] sm:h-[350px] lg:h-[390px] bg-[#0B0E14] border border-slate-800/80 rounded-xl overflow-hidden shadow-2xl flex flex-col">
       {/* Chart Header Bar */}
-      <div className="flex flex-wrap items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800/80 gap-3 z-10">
-        <div className="flex items-center space-x-3">
+      <div className="flex flex-wrap items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900/90 border-b border-slate-800/80 gap-2 sm:gap-3 z-10">
+        <div className="flex min-w-0 items-center space-x-3">
           <div className="flex items-center space-x-2">
-            <span className="font-mono font-bold text-white text-base tracking-tight">{symbol}</span>
+            <span className="font-mono font-bold text-white text-sm sm:text-base tracking-tight">{symbol}</span>
             <span className="text-xs px-2 py-0.5 rounded font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               {timeframe}
             </span>
@@ -250,14 +299,14 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         </div>
 
         {/* Live Candle Countdown & Signal Status */}
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700/60 text-xs font-mono text-slate-300">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center space-x-1.5 px-2 sm:px-2.5 py-1 rounded bg-slate-800/80 border border-slate-700/60 text-[11px] sm:text-xs font-mono text-slate-300">
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             <span>Candle Closes:</span>
             <span className="font-bold text-cyan-300">{secondsRemaining}s</span>
           </div>
 
-          <div className="flex items-center space-x-1 text-[11px] font-mono text-slate-400 px-2 py-1 bg-slate-950/60 rounded border border-slate-800">
+          <div className="hidden sm:flex items-center space-x-1 text-[11px] font-mono text-slate-400 px-2 py-1 bg-slate-950/60 rounded border border-slate-800">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
             <span>Binance Spot Real-time</span>
           </div>
@@ -265,7 +314,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       </div>
 
       {/* Main Chart Area */}
-      <div className="relative flex-1 w-full h-full">
+      <div className="relative flex-1 min-h-0 w-full">
         <div ref={containerRef} className="w-full h-full" />
 
         {!hasCandles && (
@@ -285,7 +334,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
         {/* Projected Predicted Candles Visualizer Overlay (Dashed / Transparent / Clear demarcation) */}
         {hasCandles && (
           <>
-            <div className="absolute top-4 right-4 lg:right-20 pointer-events-none flex flex-col space-y-2 z-10 max-w-[280px]">
+            <div className="absolute top-4 right-4 lg:right-20 pointer-events-none hidden xl:flex flex-col space-y-2 z-10 max-w-[280px]">
               {/* Vertical Actual vs Predicted Demarcation Notice */}
               <div className="bg-slate-900/90 backdrop-blur border border-cyan-500/30 rounded-lg p-2.5 shadow-xl text-xs font-mono">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">

@@ -50,7 +50,8 @@ export class CandleAggregatorService {
       case '10s':
       case '15s':
       case '30s':
-        return { interval: '1s', multiplier: 1 };
+        // Binance removed the public 1s kline endpoint — fall back to 1m and use trade stream for live
+        return { interval: '1m', multiplier: 1 };
       case '2m':
         return { interval: '1m', multiplier: 2 };
       case '3h':
@@ -123,6 +124,66 @@ export class CandleAggregatorService {
       wasClosed,
       closedCandle,
     };
+  }
+
+  /**
+   * Process a live kline candle into a multi-minute aggregated bucket (e.g. 1m→2m, 1h→3h).
+   * Uses the same stateful activeBuckets map so the rolling bucket accumulates correctly
+   * across multiple incoming base-interval klines.
+   */
+  public static processKline(
+    symbol: MarketSymbol,
+    targetTimeframe: Timeframe,
+    baseCandle: Candle
+  ): { candle: Candle; wasClosed: boolean; closedCandle?: Candle } {
+    const durationMs = this.getDurationMs(targetTimeframe);
+    const bucketOpenTime = this.getBucketStartTime(baseCandle.openTime, durationMs);
+    const bucketCloseTime = bucketOpenTime + durationMs - 1;
+    const bucketKey = `${symbol}:${targetTimeframe}`;
+
+    let current = this.activeBuckets.get(bucketKey);
+    let closedCandle: Candle | undefined;
+    let wasClosed = false;
+
+    if (!current || current.openTime !== bucketOpenTime) {
+      // Previous bucket is now complete
+      if (current && current.openTime < bucketOpenTime) {
+        current.isClosed = true;
+        closedCandle = { ...current };
+        wasClosed = true;
+      }
+
+      // Open new bucket seeded with this base candle
+      current = {
+        symbol,
+        timeframe: targetTimeframe,
+        openTime: bucketOpenTime,
+        closeTime: bucketCloseTime,
+        open: baseCandle.open,
+        high: baseCandle.high,
+        low: baseCandle.low,
+        close: baseCandle.close,
+        volume: baseCandle.volume,
+        isClosed: false,
+        source: 'aggregated',
+      };
+      this.activeBuckets.set(bucketKey, current);
+    } else {
+      // Merge base candle into existing bucket
+      current.high = Math.max(current.high, baseCandle.high);
+      current.low = Math.min(current.low, baseCandle.low);
+      current.close = baseCandle.close;
+      current.volume += baseCandle.volume;
+      // Mark closed when the base candle that completes the bucket is itself closed
+      if (baseCandle.isClosed && Date.now() >= bucketCloseTime) {
+        current.isClosed = true;
+        closedCandle = { ...current };
+        wasClosed = true;
+      }
+      this.activeBuckets.set(bucketKey, current);
+    }
+
+    return { candle: { ...current }, wasClosed, closedCandle };
   }
 
   /**

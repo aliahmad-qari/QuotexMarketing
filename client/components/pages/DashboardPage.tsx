@@ -1,7 +1,9 @@
 'use client';
 
 import { IndicatorDeck } from '../IndicatorDeck';
+import { LiveStatusBar } from '../LiveStatusBar';
 import { MarketTimeframeBar } from '../MarketTimeframeBar';
+import { OtcMarketsPanel } from '../OtcMarketsPanel';
 import { PredictionDeck } from '../PredictionDeck';
 import { RecentEvaluationsTable } from '../RecentEvaluationsTable';
 import { TradingChart } from '../TradingChart';
@@ -18,13 +20,24 @@ export function DashboardPage() {
     prediction2,
     metadata,
     recentEvaluations,
+    status,
     secondsRemaining,
   } = useMarketStream('BTCUSDT', '1m');
 
   const latestSnapshot = prediction1?.indicatorSnapshot || null;
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="space-y-4 pb-16">
+      {/* Live connection status bar — always visible */}
+      <LiveStatusBar
+        status={status}
+        symbol={symbol}
+        lastPrice={metadata?.lastPrice ?? null}
+        priceDecimals={metadata?.priceDecimals ?? 2}
+        priceChangePercent={metadata?.priceChangePercent24h ?? 0}
+      />
+
+      {/* Market selector + timeframe bar */}
       <MarketTimeframeBar
         symbol={symbol}
         onSelectSymbol={setSymbol}
@@ -34,6 +47,7 @@ export function DashboardPage() {
         secondsRemaining={secondsRemaining}
       />
 
+      {/* Live trading chart */}
       <TradingChart
         candles={candles}
         prediction1={prediction1}
@@ -43,13 +57,19 @@ export function DashboardPage() {
         secondsRemaining={secondsRemaining}
       />
 
+      {/* Prediction signals */}
       <PredictionDeck
         prediction1={prediction1}
         prediction2={prediction2}
       />
 
+      {/* OTC Markets catalog */}
+      <OtcMarketsPanel />
+
+      {/* Technical indicators */}
       <IndicatorDeck snapshot={latestSnapshot} />
 
+      {/* Recent prediction history */}
       <RecentEvaluationsTable evaluations={recentEvaluations} />
     </div>
   );
