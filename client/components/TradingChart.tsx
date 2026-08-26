@@ -262,13 +262,22 @@ export const TradingChart: React.FC<TradingChartProps> = ({
   const isUp = lastCandle ? lastCandle.close >= lastCandle.open : true;
   const hasCandles = candles.length > 0;
 
+  // Detect forex symbol (no "USDT" suffix, 6-char pair like EURUSD)
+  const isForex = !symbol.includes('USDT') && symbol.length === 6;
+  const displaySymbol = isForex
+    ? `${symbol.slice(0, 3)}/${symbol.slice(3)}`
+    : `${symbol.replace('USDT', '')}/USDT`;
+  const pricePrefix = isForex ? '' : '$';
+  // Forex prices need more decimals (5 for most, 3 for JPY)
+  const priceDecimals = isForex ? (symbol.includes('JPY') ? 3 : 5) : 2;
+
   return (
     <div className="relative w-full h-[300px] sm:h-[350px] lg:h-[390px] bg-[#0B0E14] border border-slate-800/80 rounded-xl overflow-hidden shadow-2xl flex flex-col">
       {/* Chart Header Bar */}
       <div className="flex flex-wrap items-center justify-between px-3 sm:px-4 py-2.5 bg-slate-900/90 border-b border-slate-800/80 gap-2 sm:gap-3 z-10">
         <div className="flex min-w-0 items-center space-x-3">
           <div className="flex items-center space-x-2">
-            <span className="font-mono font-bold text-white text-sm sm:text-base tracking-tight">{symbol}</span>
+            <span className="font-mono font-bold text-white text-sm sm:text-base tracking-tight">{displaySymbol}</span>
             <span className="text-xs px-2 py-0.5 rounded font-mono bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               {timeframe}
             </span>
@@ -280,18 +289,18 @@ export const TradingChart: React.FC<TradingChartProps> = ({
           {activePrice && (
             <div className="hidden lg:flex items-center space-x-3 font-mono text-xs text-slate-400">
               <span>
-                O: <strong className="text-slate-200">${activePrice.open.toFixed(2)}</strong>
+                O: <strong className="text-slate-200">{pricePrefix}{activePrice.open.toFixed(priceDecimals)}</strong>
               </span>
               <span>
-                H: <strong className="text-slate-200">${activePrice.high.toFixed(2)}</strong>
+                H: <strong className="text-slate-200">{pricePrefix}{activePrice.high.toFixed(priceDecimals)}</strong>
               </span>
               <span>
-                L: <strong className="text-slate-200">${activePrice.low.toFixed(2)}</strong>
+                L: <strong className="text-slate-200">{pricePrefix}{activePrice.low.toFixed(priceDecimals)}</strong>
               </span>
               <span>
                 C:{' '}
                 <strong className={isUp ? 'text-emerald-400' : 'text-rose-400'}>
-                  ${activePrice.price.toFixed(2)}
+                  {pricePrefix}{activePrice.price.toFixed(priceDecimals)}
                 </strong>
               </span>
             </div>
@@ -308,7 +317,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
 
           <div className="hidden sm:flex items-center space-x-1 text-[11px] font-mono text-slate-400 px-2 py-1 bg-slate-950/60 rounded border border-slate-800">
             <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Binance Spot Real-time</span>
+            <span>{isForex ? 'Twelve Data Real-time' : 'Binance Spot Real-time'}</span>
           </div>
         </div>
       </div>
@@ -325,7 +334,9 @@ export const TradingChart: React.FC<TradingChartProps> = ({
                 Waiting for live market candles
               </h3>
               <p className="mt-2 text-xs leading-5 text-slate-400">
-                The chart is connected to backend market data only. Confirm the server is running, Binance endpoints are reachable, and NEXT_PUBLIC_WS_URL points to the deployed WebSocket URL.
+                {isForex
+                  ? 'Waiting for forex tick data. Ensure TWELVE_DATA_API_KEY is set on the server and the forex symbol is enabled.'
+                  : 'The chart is connected to backend market data only. Confirm the server is running, Binance endpoints are reachable, and NEXT_PUBLIC_WS_URL points to the deployed WebSocket URL.'}
               </p>
             </div>
           </div>
@@ -427,7 +438,7 @@ export const TradingChart: React.FC<TradingChartProps> = ({
 
             {/* Watermark Branding */}
             <div className="absolute bottom-4 left-4 pointer-events-none select-none opacity-20 text-xs font-mono tracking-widest text-slate-500">
-              CANDLE PROBABILITY LAB &bull; BINANCE SPOT
+              CANDLE PROBABILITY LAB &bull; {isForex ? 'FOREX · TWELVE DATA' : 'BINANCE SPOT'}
             </div>
           </>
         )}

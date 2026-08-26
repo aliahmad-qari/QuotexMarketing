@@ -1,11 +1,34 @@
 export type MarketSymbol =
+  // ── Binance Spot Crypto ──────────────────────────────────────────────────
   | 'BTCUSDT'
   | 'ETHUSDT'
   | 'BNBUSDT'
   | 'SOLUSDT'
   | 'XRPUSDT'
   | 'ADAUSDT'
-  | 'DOGEUSDT';
+  | 'DOGEUSDT'
+  | 'AVAXUSDT'
+  | 'DOTUSDT'
+  | 'LTCUSDT'
+  | 'LINKUSDT'
+  | 'ATOMUSDT'
+  | 'UNIUSDT'
+  | 'NEARUSDT'
+  | 'AAVEUSDT'
+  | 'MATICUSDT'
+  | 'SHIBUSDT'
+  | 'FTMUSDT'
+  | 'OPUSDT'
+  | 'ARBUSDT'
+  | 'INJUSDT'
+  | 'SUIUSDT'
+  // ── Forex (Twelve Data live candles) ────────────────────────────────────
+  | 'EURUSD'
+  | 'GBPUSD'
+  | 'USDJPY'
+  | 'AUDUSD'
+  | 'USDCAD'
+  | 'USDCHF';
 
 export type Timeframe =
   | '5s'
@@ -30,7 +53,7 @@ export interface Candle {
   close: number;
   volume: number;
   isClosed: boolean;
-  source: 'binance_rest' | 'binance_ws' | 'aggregated';
+  source: 'binance_rest' | 'binance_ws' | 'aggregated' | 'forex_ws' | 'forex_rest';
 }
 
 export type Direction = 'UP' | 'DOWN';

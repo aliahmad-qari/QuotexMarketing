@@ -37,22 +37,21 @@ export class BinanceDataService {
 
   private initDefaultMetadata() {
     const symbols: MarketSymbol[] = [
-      'BTCUSDT',
-      'ETHUSDT',
-      'BNBUSDT',
-      'SOLUSDT',
-      'XRPUSDT',
-      'ADAUSDT',
-      'DOGEUSDT',
+      'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+      'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'DOTUSDT', 'LTCUSDT',
+      'LINKUSDT', 'ATOMUSDT', 'UNIUSDT', 'NEARUSDT', 'AAVEUSDT', 'MATICUSDT',
+      'SHIBUSDT', 'FTMUSDT', 'OPUSDT', 'ARBUSDT', 'INJUSDT', 'SUIUSDT',
     ];
 
     symbols.forEach((symbol) => {
       const base = symbol.replace('USDT', '');
+      const lowPriceSyms = ['DOGE', 'ADA', 'XRP', 'MATIC', 'UNI', 'NEAR', 'LINK', 'SHIB', 'FTM', 'OP', 'ARB', 'INJ', 'SUI'];
+      const priceDecimals = lowPriceSyms.some(s => base.startsWith(s)) ? 4 : 2;
       this.marketMetadataMap.set(symbol, {
         symbol,
         baseAsset: base,
         quoteAsset: 'USDT',
-        priceDecimals: symbol.includes('DOGE') || symbol.includes('ADA') || symbol.includes('XRP') ? 4 : 2,
+        priceDecimals,
         quantityDecimals: 4,
         lastPrice: 0,
         priceChange24h: 0,

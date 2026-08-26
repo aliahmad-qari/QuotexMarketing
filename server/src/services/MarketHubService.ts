@@ -1,4 +1,5 @@
 import { binanceDataService } from './BinanceDataService';
+import { forexDataService, FOREX_SYMBOL_MAP } from './ForexDataService';
 import { PredictionEngineService } from './PredictionEngineService';
 import { marketDataRepository } from '../repositories/MarketDataRepository';
 import {
@@ -11,6 +12,11 @@ import {
 } from '../types/market.types';
 
 export type EventBroadcaster = (event: string, payload: any, room?: string) => void;
+
+// Helper — is this symbol a forex pair (routed to ForexDataService)?
+function isForexSymbol(symbol: MarketSymbol): boolean {
+  return symbol in FOREX_SYMBOL_MAP;
+}
 
 export class MarketHubService {
   private static instance: MarketHubService;
@@ -40,6 +46,13 @@ export class MarketHubService {
     setInterval(() => {
       binanceDataService.fetch24hTickers();
     }, 10000); // 10s ticker refresh
+
+    // Forex data service connects lazily when first subscribed — no init needed
+    if (forexDataService.isAvailable()) {
+      console.log('[MarketHub] Forex data service (Twelve Data) is available');
+    } else {
+      console.warn('[MarketHub] TWELVE_DATA_API_KEY not set — forex symbols disabled');
+    }
   }
 
   /**
@@ -49,8 +62,13 @@ export class MarketHubService {
     let candles = await marketDataRepository.getCandles(symbol, timeframe, 80);
 
     if (candles.length < 30) {
-      // Fetch historical from Binance REST
-      const fetched = await binanceDataService.fetchHistoricalCandles(symbol, timeframe, 100);
+      // Fetch historical — route to correct data source
+      let fetched: Candle[] = [];
+      if (isForexSymbol(symbol)) {
+        fetched = await forexDataService.fetchHistoricalCandles(symbol, timeframe, 100);
+      } else {
+        fetched = await binanceDataService.fetchHistoricalCandles(symbol, timeframe, 100);
+      }
       if (fetched.length > 0) {
         await marketDataRepository.saveCandles(fetched);
         candles = fetched;
@@ -79,7 +97,11 @@ export class MarketHubService {
       await marketDataRepository.savePrediction(generated.prediction2);
     }
 
-    const metadata = binanceDataService.getMarketMetadata(symbol);
+    // Get metadata from the appropriate data source
+    const metadata = isForexSymbol(symbol)
+      ? forexDataService.getMetadata(symbol) ?? null
+      : binanceDataService.getMarketMetadata(symbol) ?? null;
+
     const recentEvaluations = await marketDataRepository.getPredictions({
       symbol,
       timeframe,
@@ -103,9 +125,19 @@ export class MarketHubService {
     const key = `${symbol}:${timeframe}`;
     if (this.activeStreams.has(key)) return;
 
-    const unsub = binanceDataService.subscribe(symbol, timeframe, async (candle, wasClosed) => {
-      await this.handleCandleUpdate(symbol, timeframe, candle, wasClosed);
-    });
+    let unsub: () => void;
+
+    if (isForexSymbol(symbol)) {
+      // Forex — route to Twelve Data tick stream
+      unsub = forexDataService.subscribe(symbol, timeframe, async (candle, wasClosed) => {
+        await this.handleCandleUpdate(symbol, timeframe, candle, wasClosed);
+      });
+    } else {
+      // Crypto — route to Binance stream
+      unsub = binanceDataService.subscribe(symbol, timeframe, async (candle, wasClosed) => {
+        await this.handleCandleUpdate(symbol, timeframe, candle, wasClosed);
+      });
+    }
 
     this.activeStreams.set(key, unsub);
   }

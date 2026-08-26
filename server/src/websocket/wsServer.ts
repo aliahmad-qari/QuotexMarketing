@@ -1,6 +1,7 @@
 import { Server as HTTPServer } from 'http';
 import WebSocket, { WebSocketServer } from 'ws';
 import { marketHubService } from '../services/MarketHubService';
+import { forexDataService } from '../services/ForexDataService';
 import { MarketSymbol, Timeframe } from '../types/market.types';
 
 interface ClientConnection {
@@ -11,15 +12,31 @@ interface ClientConnection {
 
 let activeClientCount = 0;
 
-const VALID_SYMBOLS: MarketSymbol[] = [
-  'BTCUSDT',
-  'ETHUSDT',
-  'BNBUSDT',
-  'SOLUSDT',
-  'XRPUSDT',
-  'ADAUSDT',
-  'DOGEUSDT',
+// ── Crypto: Binance Spot (always available) ──────────────────────────────────
+const BINANCE_SYMBOLS: MarketSymbol[] = [
+  'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT',
+  'ADAUSDT', 'DOGEUSDT', 'AVAXUSDT', 'DOTUSDT', 'LTCUSDT',
+  'LINKUSDT', 'ATOMUSDT', 'UNIUSDT', 'NEARUSDT', 'AAVEUSDT', 'MATICUSDT',
+  'SHIBUSDT', 'FTMUSDT', 'OPUSDT', 'ARBUSDT', 'INJUSDT', 'SUIUSDT',
 ];
+
+// ── Forex: Twelve Data (only included when API key is configured) ─────────────
+const FOREX_SYMBOLS: MarketSymbol[] = [
+  'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF',
+];
+
+// Build the runtime valid-symbols list — forex symbols are only accepted when
+// the Twelve Data API key is present and ForexDataService is available.
+function buildValidSymbols(): MarketSymbol[] {
+  const syms: MarketSymbol[] = [...BINANCE_SYMBOLS];
+  if (forexDataService.isAvailable()) {
+    syms.push(...FOREX_SYMBOLS);
+    console.log('[WS Server] Forex symbols enabled (Twelve Data key present)');
+  } else {
+    console.warn('[WS Server] Forex symbols disabled — set TWELVE_DATA_API_KEY to enable');
+  }
+  return syms;
+}
 
 const VALID_TIMEFRAMES: Timeframe[] = [
   '5s',
@@ -37,6 +54,9 @@ const VALID_TIMEFRAMES: Timeframe[] = [
 export function setupWebSocketServer(httpServer: HTTPServer) {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   const clients = new Map<WebSocket, ClientConnection>();
+
+  // Build valid symbols at runtime (forex depends on API key)
+  const VALID_SYMBOLS = buildValidSymbols();
 
   // Broadcaster function wired to MarketHubService
   marketHubService.setBroadcaster((event: string, payload: any, room?: string) => {
