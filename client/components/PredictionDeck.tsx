@@ -11,6 +11,9 @@ export const PredictionDeck: React.FC<PredictionDeckProps> = ({
   prediction1,
   prediction2,
 }) => {
+  const formatDirection = (direction: Prediction['predictedDirection']) =>
+    direction === 'UP' ? 'UPWARD' : 'DOWNWARD';
+
   return (
     <div className="space-y-4">
       {/* Cards Grid */}
@@ -56,7 +59,9 @@ export const PredictionDeck: React.FC<PredictionDeckProps> = ({
                       ) : (
                         <ArrowDown className="w-5 h-5 stroke-[2.5]" />
                       )}
-                      <span>UPWARD ({prediction1.predictedDirection})</span>
+                      <span>
+                        {formatDirection(prediction1.predictedDirection)} ({prediction1.predictedDirection})
+                      </span>
                     </div>
                   </div>
 
@@ -164,7 +169,9 @@ export const PredictionDeck: React.FC<PredictionDeckProps> = ({
                       ) : (
                         <ArrowDown className="w-5 h-5 stroke-[2.5]" />
                       )}
-                      <span>UPWARD ({prediction2.predictedDirection})</span>
+                      <span>
+                        {formatDirection(prediction2.predictedDirection)} ({prediction2.predictedDirection})
+                      </span>
                     </div>
                   </div>
 

@@ -82,19 +82,21 @@ export class MarketHubService {
     const currentCandle = candles[candles.length - 1];
     let predictions = this.activePredictions.get(`${symbol}:${timeframe}`);
 
-    if (!predictions && candles.length >= 20 && currentCandle) {
+    if (!predictions && currentCandle) {
       const generated = PredictionEngineService.generatePredictions(
         candles,
         symbol,
         timeframe,
         currentCandle
       );
-      predictions = generated;
-      this.activePredictions.set(`${symbol}:${timeframe}`, predictions);
+      if (generated) {
+        predictions = generated;
+        this.activePredictions.set(`${symbol}:${timeframe}`, predictions);
 
-      // Lock predictions in storage
-      await marketDataRepository.savePrediction(generated.prediction1);
-      await marketDataRepository.savePrediction(generated.prediction2);
+        // Lock predictions in storage
+        await marketDataRepository.savePrediction(generated.prediction1);
+        await marketDataRepository.savePrediction(generated.prediction2);
+      }
     }
 
     // Get metadata from the appropriate data source
@@ -173,14 +175,14 @@ export class MarketHubService {
 
       // 3. Generate new deterministic prediction for the newly commencing candle
       const history = await marketDataRepository.getCandles(symbol, timeframe, 80);
-      if (history.length >= 20) {
-        const generated = PredictionEngineService.generatePredictions(
-          history,
-          symbol,
-          timeframe,
-          candle
-        );
+      const generated = PredictionEngineService.generatePredictions(
+        history,
+        symbol,
+        timeframe,
+        candle
+      );
 
+      if (generated) {
         this.activePredictions.set(key, generated);
 
         // Lock in storage with zero look-ahead bias

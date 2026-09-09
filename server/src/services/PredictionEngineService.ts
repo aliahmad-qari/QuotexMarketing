@@ -20,8 +20,25 @@ export class PredictionEngineService {
     symbol: MarketSymbol,
     timeframe: Timeframe,
     currentCandle: Candle
-  ): { prediction1: Prediction; prediction2: Prediction } {
-    const snapshot = IndicatorService.computeSnapshot(candles);
+  ): { prediction1: Prediction; prediction2: Prediction } | null {
+    if (!currentCandle.isClosed) {
+      return null;
+    }
+
+    const candleDuration = currentCandle.closeTime - currentCandle.openTime + 1;
+    const target1Time = currentCandle.openTime + candleDuration;
+    const target2Time = target1Time + candleDuration;
+    const issuedAt = target1Time;
+
+    const closedHistory = candles
+      .filter((c) => c.isClosed && c.openTime <= currentCandle.openTime)
+      .sort((a, b) => a.openTime - b.openTime);
+
+    if (closedHistory.length < 20) {
+      return null;
+    }
+
+    const snapshot = IndicatorService.computeSnapshot(closedHistory);
     const contributors: IndicatorContribution[] = [];
     let bullishScore = 0;
     let bearishScore = 0;
@@ -208,9 +225,16 @@ export class PredictionEngineService {
 
     // Total maximum possible points ~ 10.0
     const totalScore = bullishScore + bearishScore;
-    const isBullish = bullishScore >= bearishScore;
-    const direction: Direction = isBullish ? 'UP' : 'DOWN';
-    const dominantScore = isBullish ? bullishScore : bearishScore;
+    const lastClosedCandle = closedHistory[closedHistory.length - 1];
+    const direction: Direction =
+      bullishScore === bearishScore
+        ? lastClosedCandle.close >= lastClosedCandle.open
+          ? 'UP'
+          : 'DOWN'
+        : bullishScore > bearishScore
+        ? 'UP'
+        : 'DOWN';
+    const dominantScore = direction === 'UP' ? bullishScore : bearishScore;
     const agreementRatio = totalScore > 0 ? dominantScore / totalScore : 0.5;
 
     // +1 Candle Confidence: deterministic scaling between 50% and 80% (strictly capped)
@@ -235,11 +259,6 @@ export class PredictionEngineService {
             .map((c) => c.indicator)
             .join(', ')} agreement.`
         : `Balanced indicator distribution with slight ${direction} bias.`;
-
-    const candleDuration = currentCandle.closeTime - currentCandle.openTime + 1;
-    const target1Time = currentCandle.openTime + candleDuration;
-    const target2Time = currentCandle.openTime + candleDuration * 2;
-    const issuedAt = currentCandle.openTime;
 
     const prediction1: Prediction = {
       symbol,
