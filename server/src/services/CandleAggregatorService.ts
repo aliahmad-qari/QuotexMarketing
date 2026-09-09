@@ -3,6 +3,12 @@ import { Candle, MarketSymbol, Timeframe } from '../types/market.types';
 export class CandleAggregatorService {
   // Rolling partial candle state for custom sub-minute and multi-minute aggregation
   private static activeBuckets: Map<string, Candle> = new Map();
+  private static activeKlineParts: Map<string, Map<number, Candle>> = new Map();
+
+  public static resetStateForTests(): void {
+    this.activeBuckets.clear();
+    this.activeKlineParts.clear();
+  }
 
   /**
    * Convert timeframe string into millisecond duration
@@ -89,7 +95,7 @@ export class CandleAggregatorService {
 
     if (!current || current.openTime !== bucketOpenTime) {
       // Previous bucket closed
-      if (current && current.openTime < bucketOpenTime) {
+      if (current && current.openTime < bucketOpenTime && !current.isClosed) {
         current.isClosed = true;
         closedCandle = { ...current };
         wasClosed = true;
@@ -142,46 +148,53 @@ export class CandleAggregatorService {
     const bucketKey = `${symbol}:${targetTimeframe}`;
 
     let current = this.activeBuckets.get(bucketKey);
+    let parts = this.activeKlineParts.get(bucketKey);
     let closedCandle: Candle | undefined;
     let wasClosed = false;
+    const wasAlreadyClosed = current?.openTime === bucketOpenTime && current.isClosed;
 
     if (!current || current.openTime !== bucketOpenTime) {
       // Previous bucket is now complete
-      if (current && current.openTime < bucketOpenTime) {
+      if (current && current.openTime < bucketOpenTime && !current.isClosed) {
         current.isClosed = true;
         closedCandle = { ...current };
         wasClosed = true;
       }
 
-      // Open new bucket seeded with this base candle
-      current = {
-        symbol,
-        timeframe: targetTimeframe,
-        openTime: bucketOpenTime,
-        closeTime: bucketCloseTime,
-        open: baseCandle.open,
-        high: baseCandle.high,
-        low: baseCandle.low,
-        close: baseCandle.close,
-        volume: baseCandle.volume,
-        isClosed: false,
-        source: 'aggregated',
-      };
-      this.activeBuckets.set(bucketKey, current);
-    } else {
-      // Merge base candle into existing bucket
-      current.high = Math.max(current.high, baseCandle.high);
-      current.low = Math.min(current.low, baseCandle.low);
-      current.close = baseCandle.close;
-      current.volume += baseCandle.volume;
-      // Mark closed when the base candle that completes the bucket is itself closed
-      if (baseCandle.isClosed && Date.now() >= bucketCloseTime) {
-        current.isClosed = true;
-        closedCandle = { ...current };
-        wasClosed = true;
-      }
-      this.activeBuckets.set(bucketKey, current);
+      parts = new Map();
+      this.activeKlineParts.set(bucketKey, parts);
     }
+
+    if (!parts) {
+      parts = new Map();
+      this.activeKlineParts.set(bucketKey, parts);
+    }
+
+    parts.set(baseCandle.openTime, { ...baseCandle });
+    const sortedParts = Array.from(parts.values()).sort((a, b) => a.openTime - b.openTime);
+    const firstPart = sortedParts[0];
+    const lastPart = sortedParts[sortedParts.length - 1];
+
+    current = {
+      symbol,
+      timeframe: targetTimeframe,
+      openTime: bucketOpenTime,
+      closeTime: bucketCloseTime,
+      open: firstPart.open,
+      high: Math.max(...sortedParts.map((c) => c.high)),
+      low: Math.min(...sortedParts.map((c) => c.low)),
+      close: lastPart.close,
+      volume: sortedParts.reduce((sum, c) => sum + c.volume, 0),
+      isClosed: lastPart.isClosed && lastPart.closeTime >= bucketCloseTime,
+      source: 'aggregated',
+    };
+
+    if (!wasAlreadyClosed && current.isClosed) {
+      closedCandle = { ...current };
+      wasClosed = true;
+    }
+
+    this.activeBuckets.set(bucketKey, current);
 
     return { candle: { ...current }, wasClosed, closedCandle };
   }

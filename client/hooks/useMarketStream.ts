@@ -42,6 +42,9 @@ export function useMarketStream(initialSymbol: MarketSymbol = 'BTCUSDT', initial
       if (data.predictions) {
         setPrediction1(data.predictions.prediction1);
         setPrediction2(data.predictions.prediction2);
+      } else {
+        setPrediction1(null);
+        setPrediction2(null);
       }
       if (data.recentEvaluations) {
         setRecentEvaluations(data.recentEvaluations);
@@ -96,7 +99,7 @@ export function useMarketStream(initialSymbol: MarketSymbol = 'BTCUSDT', initial
     });
 
     const unsubPredEval = wsClient.onPredictionEvaluated((evaluation: Prediction) => {
-      if (evaluation.symbol !== symbolRef.current) return;
+      if (evaluation.symbol !== symbolRef.current || evaluation.timeframe !== timeframeRef.current) return;
       setRecentEvaluations((prev) => {
         const filtered = prev.filter(
           (p) => !(

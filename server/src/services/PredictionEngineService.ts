@@ -29,9 +29,15 @@ export class PredictionEngineService {
     const target1Time = currentCandle.openTime + candleDuration;
     const target2Time = target1Time + candleDuration;
     const issuedAt = target1Time;
+    const isSubMinuteTimeframe = ['5s', '10s', '15s', '30s'].includes(timeframe);
 
     const closedHistory = candles
-      .filter((c) => c.isClosed && c.openTime <= currentCandle.openTime)
+      .filter(
+        (c) =>
+          c.isClosed &&
+          c.openTime <= currentCandle.openTime &&
+          (!isSubMinuteTimeframe || c.source === 'aggregated')
+      )
       .sort((a, b) => a.openTime - b.openTime);
 
     if (closedHistory.length < 20) {

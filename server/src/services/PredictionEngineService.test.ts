@@ -5,10 +5,17 @@ import { Candle } from '../types/market.types';
 const startTime = 1_700_000_000_000;
 const durationMs = 60_000;
 
-function candle(index: number, open: number, close: number, isClosed = true): Candle {
+function candle(
+  index: number,
+  open: number,
+  close: number,
+  isClosed = true,
+  timeframe: Candle['timeframe'] = '1m',
+  source: Candle['source'] = 'binance_ws'
+): Candle {
   return {
     symbol: 'BTCUSDT',
-    timeframe: '1m',
+    timeframe,
     openTime: startTime + index * durationMs,
     closeTime: startTime + (index + 1) * durationMs - 1,
     open,
@@ -17,7 +24,7 @@ function candle(index: number, open: number, close: number, isClosed = true): Ca
     close,
     volume: 100,
     isClosed,
-    source: 'binance_ws',
+    source,
   };
 }
 
@@ -82,6 +89,21 @@ describe('PredictionEngineService', () => {
       'BTCUSDT',
       '1m',
       activeCandle
+    );
+
+    expect(predictions).toBeNull();
+  });
+
+  it('does not generate sub-minute predictions from retagged 1m REST placeholders', () => {
+    const placeholderCandles = Array.from({ length: 20 }, (_, index) =>
+      candle(index, 100, 101, true, '30s', 'binance_rest')
+    );
+
+    const predictions = PredictionEngineService.generatePredictions(
+      placeholderCandles,
+      'BTCUSDT',
+      '30s',
+      placeholderCandles[placeholderCandles.length - 1]
     );
 
     expect(predictions).toBeNull();

@@ -81,6 +81,17 @@ export class MarketHubService {
     // Calculate / retrieve current prediction
     const currentCandle = candles[candles.length - 1];
     let predictions = this.activePredictions.get(`${symbol}:${timeframe}`);
+    if (predictions && currentCandle) {
+      const candleDuration = currentCandle.closeTime - currentCandle.openTime + 1;
+      const expectedHorizon1Open = currentCandle.isClosed
+        ? currentCandle.openTime + candleDuration
+        : currentCandle.openTime;
+
+      if (predictions.prediction1.targetCandleOpenTime < expectedHorizon1Open) {
+        this.activePredictions.delete(`${symbol}:${timeframe}`);
+        predictions = undefined;
+      }
+    }
 
     if (!predictions && currentCandle) {
       const generated = PredictionEngineService.generatePredictions(

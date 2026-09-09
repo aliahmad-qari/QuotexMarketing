@@ -44,6 +44,8 @@ export const TradingChart: React.FC<TradingChartProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
+    setActivePrice(null);
+
     const initialWidth = containerRef.current.clientWidth || 640;
     const initialHeight = containerRef.current.clientHeight || 360;
 
@@ -179,25 +181,30 @@ export const TradingChart: React.FC<TradingChartProps> = ({
       chart.remove();
       chartRef.current = null;
     };
-  }, [timeframe]);
+  }, [symbol, timeframe]);
 
   // Update candle data in chart
   useEffect(() => {
-    if (!candleSeriesRef.current || !volumeSeriesRef.current || !candles.length) return;
+    if (!candleSeriesRef.current || !volumeSeriesRef.current) return;
+
+    if (!candles.length) {
+      candleSeriesRef.current.setData([]);
+      volumeSeriesRef.current.setData([]);
+      isSeededRef.current = false;
+      prevCandleCountRef.current = 0;
+      setActivePrice(null);
+      return;
+    }
 
     try {
       // Sort and deduplicate by second-precision timestamp (lightweight-charts requirement)
       const sorted = [...candles].sort((a, b) => a.openTime - b.openTime);
-
-      const uniqueCandles: Candle[] = [];
-      const seen = new Set<number>();
+      const candleBySecond = new Map<number, Candle>();
       for (const c of sorted) {
         const sec = Math.floor(c.openTime / 1000);
-        if (!seen.has(sec)) {
-          seen.add(sec);
-          uniqueCandles.push(c);
-        }
+        candleBySecond.set(sec, c);
       }
+      const uniqueCandles = Array.from(candleBySecond.values());
 
       const toBarData = (c: Candle) => ({
         time: Math.floor(c.openTime / 1000) as UTCTimestamp,

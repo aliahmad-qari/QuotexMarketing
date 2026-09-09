@@ -115,6 +115,71 @@ export class BinanceDataService {
     return Array.from(this.marketMetadataMap.values());
   }
 
+  private isSubMinuteTimeframe(timeframe: Timeframe): boolean {
+    return ['5s', '10s', '15s', '30s'].includes(timeframe);
+  }
+
+  private async fetchRecentTradeCandles(
+    symbol: MarketSymbol,
+    timeframe: Timeframe,
+    limit: number
+  ): Promise<Candle[]> {
+    const durationMs = CandleAggregatorService.getDurationMs(timeframe);
+    const minOpenTime = CandleAggregatorService.getBucketStartTime(Date.now() - durationMs * limit, durationMs);
+
+    for (const baseUrl of this.getRestUrls()) {
+      try {
+        const url = `${baseUrl}/api/v3/aggTrades?symbol=${symbol}&limit=1000`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+
+        const data = await res.json();
+        if (!Array.isArray(data)) continue;
+
+        const buckets = new Map<number, Candle>();
+        for (const trade of data) {
+          const timestamp = Number(trade.T);
+          const price = parseFloat(trade.p);
+          const volume = parseFloat(trade.q);
+          if (!Number.isFinite(timestamp) || !Number.isFinite(price) || timestamp < minOpenTime) {
+            continue;
+          }
+
+          const openTime = CandleAggregatorService.getBucketStartTime(timestamp, durationMs);
+          const closeTime = openTime + durationMs - 1;
+          const existing = buckets.get(openTime);
+          if (!existing) {
+            buckets.set(openTime, {
+              symbol,
+              timeframe,
+              openTime,
+              closeTime,
+              open: price,
+              high: price,
+              low: price,
+              close: price,
+              volume,
+              isClosed: Date.now() > closeTime,
+              source: 'aggregated',
+            });
+          } else {
+            existing.high = Math.max(existing.high, price);
+            existing.low = Math.min(existing.low, price);
+            existing.close = price;
+            existing.volume += volume;
+          }
+        }
+
+        this.restUrl = baseUrl;
+        return Array.from(buckets.values()).sort((a, b) => a.openTime - b.openTime).slice(-limit);
+      } catch (err) {
+        console.warn(`[BinanceDataService] Recent trades failed from ${baseUrl} for ${symbol} ${timeframe}:`, (err as Error).message);
+      }
+    }
+
+    return [];
+  }
+
   /**
    * Fetch historical candles via Binance REST API
    */
@@ -126,6 +191,7 @@ export class BinanceDataService {
     try {
       const isNative = CandleAggregatorService.isNativeBinanceInterval(timeframe);
       const { interval, multiplier } = CandleAggregatorService.getBaseFetchInterval(timeframe);
+      const isSubMinute = this.isSubMinuteTimeframe(timeframe);
 
       // Fetch enough base candles to construct aggregated ones if needed
       const fetchLimit = isNative ? Math.min(limit, 500) : Math.min(limit * multiplier * 2, 500);
@@ -171,10 +237,16 @@ export class BinanceDataService {
       // For sub-minute timeframes (5s/10s/15s/30s): the 1s endpoint is not public.
       // We use 1m candles as a historical seed so the chart isn't blank on load.
       // Live trade-stream ticks will build the real sub-minute candles on top.
-      const isSubMinute = ['5s', '10s', '15s', '30s'].includes(timeframe);
       if (isSubMinute) {
+        const tradeCandles = await this.fetchRecentTradeCandles(symbol, timeframe, limit);
+        if (tradeCandles.length > 0) {
+          return tradeCandles;
+        }
+
         // Re-tag candles with the requested sub-minute timeframe so the client
-        // matches them to the correct stream key.
+        // matches them to the correct stream key. These are chart bootstrap
+        // placeholders only; PredictionEngineService ignores them for
+        // sub-minute signals because their source remains binance_rest.
         return baseCandles.slice(-limit).map((c) => ({ ...c, timeframe }));
       }
 
@@ -297,18 +369,21 @@ export class BinanceDataService {
     const symLower = symbol.toLowerCase();
     const streamsToSub: string[] = [];
 
-    // Native kline stream or 1m kline + trade stream for sub-minute aggregation
+    // Native kline stream, trade stream for sub-minute aggregation, or
+    // the exact base kline stream for multi-candle aggregation.
     if (CandleAggregatorService.isNativeBinanceInterval(timeframe)) {
       const streamName = `${symLower}@kline_${timeframe}`;
       streamsToSub.push(streamName);
       this.activeSubscriptions.add(streamName);
-    } else {
-      // Sub-minute or custom: subscribe to trade stream + 1m kline
+    } else if (this.isSubMinuteTimeframe(timeframe)) {
       const tradeStream = `${symLower}@trade`;
-      const kline1mStream = `${symLower}@kline_1m`;
-      streamsToSub.push(tradeStream, kline1mStream);
+      streamsToSub.push(tradeStream);
       this.activeSubscriptions.add(tradeStream);
-      this.activeSubscriptions.add(kline1mStream);
+    } else {
+      const { interval } = CandleAggregatorService.getBaseFetchInterval(timeframe);
+      const streamName = `${symLower}@kline_${interval}`;
+      streamsToSub.push(streamName);
+      this.activeSubscriptions.add(streamName);
     }
 
     if (this.wsClient && this.wsClient.readyState === WebSocket.OPEN) {

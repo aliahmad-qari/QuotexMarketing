@@ -16,6 +16,29 @@ class MarketDataRepository {
     return `${symbol}:${timeframe}:${targetCandleOpenTime}:${horizon}`;
   }
 
+  private mapPredictionDoc(d: any): Prediction {
+    return {
+      id: d._id?.toString(),
+      symbol: d.symbol,
+      timeframe: d.timeframe,
+      targetCandleOpenTime: d.targetCandleOpenTime,
+      horizon: d.horizon,
+      predictedDirection: d.predictedDirection,
+      confidence: d.confidence,
+      indicatorSnapshot: d.indicatorSnapshot,
+      topContributors: d.topContributors,
+      explanation: d.explanation,
+      modelVersion: d.modelVersion,
+      issuedAt: d.issuedAt,
+      currentPriceAtIssue: d.currentPriceAtIssue,
+      actualDirection: d.actualDirection,
+      actualCandleOpen: d.actualCandleOpen,
+      actualCandleClose: d.actualCandleClose,
+      result: d.result,
+      evaluatedAt: d.evaluatedAt,
+    };
+  }
+
   // --- CANDLE STORAGE ---
 
   public async saveCandles(candles: Candle[]): Promise<void> {
@@ -143,10 +166,38 @@ class MarketDataRepository {
   public async getPendingPredictions(symbol: MarketSymbol, timeframe: Timeframe, currentTime: number): Promise<Prediction[]> {
     const results: Prediction[] = [];
     for (const p of this.predictionStore.values()) {
-      if (p.symbol === symbol && p.timeframe === timeframe && !p.result) {
+      if (p.symbol === symbol && p.timeframe === timeframe && !p.result && p.targetCandleOpenTime <= currentTime) {
         results.push(p);
       }
     }
+
+    if (isDbConnected()) {
+      try {
+        const docs = await PredictionModel.find({
+          symbol,
+          timeframe,
+          targetCandleOpenTime: { $lte: currentTime },
+          result: { $exists: false },
+        }).lean();
+
+        for (const doc of docs) {
+          const prediction = this.mapPredictionDoc(doc);
+          const key = this.getPredictionKey(
+            prediction.symbol,
+            prediction.timeframe,
+            prediction.targetCandleOpenTime,
+            prediction.horizon
+          );
+          if (!this.predictionStore.has(key)) {
+            this.predictionStore.set(key, prediction);
+            results.push(prediction);
+          }
+        }
+      } catch (err) {
+        console.error('[MarketDataRepository] Error reading pending predictions from MongoDB:', err);
+      }
+    }
+
     return results;
   }
 
@@ -175,18 +226,26 @@ class MarketDataRepository {
       this.predictionStore.set(key, existing);
     }
 
+    let updated = existing || null;
+
     if (isDbConnected()) {
       try {
-        await (PredictionModel as any).updateOne(
+        const doc = await (PredictionModel as any).findOneAndUpdate(
           { symbol, timeframe, targetCandleOpenTime, horizon },
-          { $set: evaluation }
-        );
+          { $set: evaluation },
+          { new: true }
+        ).lean();
+
+        if (doc) {
+          updated = this.mapPredictionDoc(doc);
+          this.predictionStore.set(key, updated);
+        }
       } catch (err) {
         console.error('[MarketDataRepository] Error updating prediction evaluation:', err);
       }
     }
 
-    return existing || null;
+    return updated;
   }
 
   public async getPredictions(filter: {
@@ -212,26 +271,7 @@ class MarketDataRepository {
           .lean();
 
         if (docs.length > 0) {
-          return docs.map((d: any) => ({
-            id: d._id?.toString(),
-            symbol: d.symbol,
-            timeframe: d.timeframe,
-            targetCandleOpenTime: d.targetCandleOpenTime,
-            horizon: d.horizon,
-            predictedDirection: d.predictedDirection,
-            confidence: d.confidence,
-            indicatorSnapshot: d.indicatorSnapshot,
-            topContributors: d.topContributors,
-            explanation: d.explanation,
-            modelVersion: d.modelVersion,
-            issuedAt: d.issuedAt,
-            currentPriceAtIssue: d.currentPriceAtIssue,
-            actualDirection: d.actualDirection,
-            actualCandleOpen: d.actualCandleOpen,
-            actualCandleClose: d.actualCandleClose,
-            result: d.result,
-            evaluatedAt: d.evaluatedAt,
-          }));
+          return docs.map((d: any) => this.mapPredictionDoc(d));
         }
       } catch (err) {
         console.error('[MarketDataRepository] Error fetching predictions from MongoDB:', err);
@@ -261,23 +301,7 @@ class MarketDataRepository {
         if (symbol) query.symbol = symbol;
         const docs = await PredictionModel.find(query).lean();
         if (docs.length > 0) {
-          all = docs.map((d: any) => ({
-            symbol: d.symbol,
-            timeframe: d.timeframe,
-            targetCandleOpenTime: d.targetCandleOpenTime,
-            horizon: d.horizon,
-            predictedDirection: d.predictedDirection,
-            confidence: d.confidence,
-            indicatorSnapshot: d.indicatorSnapshot,
-            topContributors: d.topContributors,
-            explanation: d.explanation,
-            modelVersion: d.modelVersion,
-            issuedAt: d.issuedAt,
-            currentPriceAtIssue: d.currentPriceAtIssue,
-            actualDirection: d.actualDirection,
-            result: d.result,
-            evaluatedAt: d.evaluatedAt,
-          }));
+          all = docs.map((d: any) => this.mapPredictionDoc(d));
         }
       } catch (err) {
         console.error('[MarketDataRepository] Error calculating performance stats from MongoDB:', err);
